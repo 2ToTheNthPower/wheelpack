@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 import sysconfig
+import tomllib
 from pathlib import Path
 
 
@@ -74,16 +75,18 @@ def main():
     if report["implementation"] != "CPython" or report["pointer_bits"] != 64:
         errors.append("CI requires native 64-bit CPython")
     try:
-        packages = json.loads((root / "devbox.json").read_text(encoding="utf-8"))["packages"]
-        (uv_package,) = (package for package in packages if package.startswith("uv@"))
-        expected_uv = uv_package.removeprefix("uv@")
+        project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+        required_uv = project["tool"]["uv"]["required-version"]
+        if not required_uv.startswith("=="):
+            raise ValueError("CI requires an exact uv version pin")
+        expected_uv = required_uv.removeprefix("==")
         for tool, command in (("uv", ["uv", "--version"]), ("poetry", ["poetry", "--version"])):
             if shutil.which(tool) is None:
                 raise RuntimeError(f"Required tool is missing: {tool}")
             output = subprocess.run(command, capture_output=True, text=True, check=True)
             report["tools"][tool] = output.stdout.strip()
         if report["tools"]["uv"].split()[1] != expected_uv:
-            errors.append(f"uv must match devbox.json: {expected_uv}")
+            errors.append(f"uv must match pyproject.toml: {expected_uv}")
         for package in ("pip", "pytest", "poetry-plugin-export"):
             report["tools"][package] = importlib.metadata.version(package)
         subprocess.run(["poetry", "export", "--help"], capture_output=True, text=True, check=True)

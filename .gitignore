@@ -5,5 +5,8 @@ __pycache__/
 .ruff_cache/
 dist/
 ci-results/
+transfer-out/
+transfer-in/
+transfer-results/
 *.egg-info/
 *.zip

@@ -24,19 +24,22 @@ jobs:
       UV_PYTHON_PREFERENCE: only-managed
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: jetify-com/devbox-install-action@734088efddca47cf44ff8a09289c6d0e51b73218 # v0.12.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          devbox-version: 0.18.3
+          version-file: pyproject.toml
+          enable-cache: false
       - name: Lint workflows
-        run: devbox run -- actionlint .github/workflows/*.yml
-      - name: Install managed Python and locked dependencies
-        run: |
-          devbox run -- uv python install "$UV_PYTHON"
-          devbox run -- uv sync --locked --python "$UV_PYTHON"
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: .github/workflows/ci.yml .github/workflows/musl.yml .github/workflows/zip-transfer.yml
+      - name: Install managed Python
+        run: uv python install "$UV_PYTHON"
+      - name: Install locked dependencies
+        run: uv sync --locked --python "$UV_PYTHON"
       - name: Lint Python
-        run: devbox run -- uv run --locked --python "$UV_PYTHON" ruff check .
+        run: uv run --locked --python "$UV_PYTHON" ruff check .
       - name: Build wheel and sdist
-        run: devbox run -- uv build --python "$UV_PYTHON"
+        run: uv build --python "$UV_PYTHON"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: distributions
@@ -66,64 +69,20 @@ jobs:
       UV_PYTHON_PREFERENCE: only-managed
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: jetify-com/devbox-install-action@734088efddca47cf44ff8a09289c6d0e51b73218 # v0.12.0
-        if: runner.os != 'Windows'
-        with:
-          devbox-version: 0.18.3
-      # Devbox does not support Windows. Read its uv pin rather than maintaining a second one.
-      - name: Read Windows uv version from Devbox
-        id: windows-uv
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $packages = (Get-Content devbox.json -Raw | ConvertFrom-Json).packages
-          $pins = @($packages | Where-Object { $_ -match '^uv@' })
-          if ($pins.Count -ne 1) { throw 'Expected one uv pin in devbox.json' }
-          "version=$($pins[0].Substring(3))" >> $env:GITHUB_OUTPUT
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        if: runner.os == 'Windows'
         with:
-          version: ${{ steps.windows-uv.outputs.version }}
+          version-file: pyproject.toml
           python-version: ${{ env.UV_PYTHON }}
-          python-arch: ${{ matrix.platform.arch }}
           enable-cache: false
-      - name: Install POSIX managed Python and locked dependencies
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          devbox run -- uv python install "$UV_PYTHON"
-          devbox run -- uv sync --locked --python "$UV_PYTHON"
-      - name: Install Windows managed Python and locked dependencies
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          uv python install "$env:UV_PYTHON"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv sync --locked --python "$env:UV_PYTHON"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Run full native suite (POSIX)
-        if: runner.os != 'Windows'
-        shell: bash
-        env:
-          EXPECTED_OS: ${{ matrix.platform.os }}
-          EXPECTED_ARCH: ${{ matrix.platform.arch }}
-          EXPECTED_PYTHON: ${{ matrix.python }}
-          EXPECTED_LIBC: ${{ matrix.platform.libc }}
-        run: |
-          devbox run -- uv run --locked --python "$UV_PYTHON" python scripts/ci.py \
-            --expected-os "$EXPECTED_OS" --expected-arch "$EXPECTED_ARCH" \
-            --expected-python "$EXPECTED_PYTHON" --expected-libc "$EXPECTED_LIBC"
-      - name: Run full native suite (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          EXPECTED_ARCH: ${{ matrix.platform.arch }}
-          EXPECTED_PYTHON: ${{ matrix.python }}
-        run: |
-          uv run --locked --python "$env:UV_PYTHON" python scripts/ci.py `
-            --expected-os windows --expected-arch "$env:EXPECTED_ARCH" `
-            --expected-python "$env:EXPECTED_PYTHON" --expected-libc none
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install managed Python
+        run: uv python install "${{ env.UV_PYTHON }}"
+      - name: Install locked dependencies
+        run: uv sync --locked --python "${{ env.UV_PYTHON }}"
+      - name: Run full native suite
+        run: >-
+          uv run --locked --python "${{ env.UV_PYTHON }}" python scripts/ci.py
+          --expected-os "${{ matrix.platform.os }}" --expected-arch "${{ matrix.platform.arch }}"
+          --expected-python "${{ matrix.python }}" --expected-libc "${{ matrix.platform.libc }}"
       - name: Preserve test reports even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

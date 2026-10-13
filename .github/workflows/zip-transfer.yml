@@ -1,0 +1,451 @@
+name: ZIP Transfer
+
+'on':
+  push:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    - cron: '27 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  produce:
+    name: Produce / ${{ matrix.platform.runner }} / ${{ matrix.platform.libc }} / CPython ${{ matrix.python }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+        platform:
+          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu, key: linux-arm64}
+          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none, key: macos-x64}
+          - {runner: macos-15, os: macos, arch: aarch64, libc: none, key: macos-arm64}
+          - {runner: windows-2022, os: windows, arch: x86_64, libc: none, key: windows-x64}
+          - {runner: windows-2025, os: windows, arch: x86_64, libc: none, key: windows-x64}
+          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none, key: windows-arm64}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl, key: musl-x64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl, key: musl-arm64}
+    env:
+      UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
+      UV_PYTHON_PREFERENCE: only-managed
+      TRANSFER_PRODUCER: ${{ matrix.platform.runner }}-${{ matrix.platform.libc }}-py${{ matrix.python }}
+      EXPECTED_OS: ${{ matrix.platform.os }}
+      EXPECTED_ARCH: ${{ matrix.platform.arch }}
+      EXPECTED_PYTHON: ${{ matrix.python }}
+      EXPECTED_LIBC: ${{ matrix.platform.libc }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        id: setup
+        with:
+          version-file: pyproject.toml
+          python-version: ${{ env.UV_PYTHON }}
+          enable-cache: false
+      - name: Install managed Python
+        if: matrix.platform.libc != 'musl'
+        run: uv python install "${{ env.UV_PYTHON }}"
+      - name: Install locked runtime dependencies
+        if: matrix.platform.libc != 'musl'
+        run: uv sync --locked --no-dev --python "${{ env.UV_PYTHON }}"
+      - name: Produce native and targeted ZIP bundles
+        if: matrix.platform.libc != 'musl'
+        run: >-
+          uv run --locked --no-dev --python "${{ env.UV_PYTHON }}" python scripts/ci_transfer.py produce
+          --producer "${{ env.TRANSFER_PRODUCER }}" --output transfer-out
+          --expected-os "${{ matrix.platform.os }}" --expected-arch "${{ matrix.platform.arch }}"
+          --expected-python "${{ matrix.python }}" --expected-libc "${{ matrix.platform.libc }}"
+      # Native ARM containers use ARM runners. Host ownership preserves access to mode-0600 ZIPs.
+      - name: Produce ZIP bundles in native musl container
+        if: matrix.platform.libc == 'musl'
+        shell: bash
+        env:
+          TRANSFER_MODE: produce
+          UV_VERSION: ${{ steps.setup.outputs.uv-version }}
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)"
+          --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" --workdir /workspace
+          --env HOME=/tmp/ci-home --env UV_PYTHON --env UV_PYTHON_PREFERENCE
+          --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv --env XDG_CACHE_HOME=/tmp/cache
+          --env UV_CACHE_DIR=/tmp/cache/uv --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python
+          --env TRANSFER_MODE --env TRANSFER_PRODUCER
+          --env GITHUB_REPOSITORY --env GITHUB_SHA --env GITHUB_RUN_ID
+          --env EXPECTED_OS --env EXPECTED_ARCH --env EXPECTED_PYTHON --env EXPECTED_LIBC
+          "ghcr.io/astral-sh/uv:${UV_VERSION}-alpine3.22" sh scripts/ci-transfer-musl.sh
+      - name: Upload native bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-zip-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/native/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      # Keep each target/Python pair separate so consumers download only their 40 targeted bundles.
+      - name: Upload linux-x64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-x64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-x64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-x64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-x64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-x64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-x64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-x64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-arm64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-arm64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-arm64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-arm64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-arm64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-arm64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload linux-arm64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-linux-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-arm64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-x64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-x64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-x64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-x64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-x64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-x64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-x64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-x64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-arm64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-arm64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-arm64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-arm64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-arm64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-arm64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload macOS-arm64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-macos-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-arm64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-x64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-x64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-x64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-x64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-x64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-x64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-x64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-x64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-arm64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-arm64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-arm64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-arm64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-arm64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-arm64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload windows-arm64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-windows-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-arm64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-x64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-x64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-x64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-x64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-x64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-x64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-x64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-x64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-arm64 / Python 3.11
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-arm64-py3.11/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-arm64 / Python 3.12
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-arm64-py3.12/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-arm64 / Python 3.13
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-arm64-py3.13/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Upload musl-arm64 / Python 3.14
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: target-zip-musl-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-arm64-py3.14/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  consume:
+    name: Consume / ${{ matrix.platform.runner }} / ${{ matrix.platform.libc }} / CPython ${{ matrix.python }}
+    needs: produce
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+        platform:
+          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu, key: linux-arm64}
+          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none, key: macos-x64}
+          - {runner: macos-15, os: macos, arch: aarch64, libc: none, key: macos-arm64}
+          - {runner: windows-2022, os: windows, arch: x86_64, libc: none, key: windows-x64}
+          - {runner: windows-2025, os: windows, arch: x86_64, libc: none, key: windows-x64}
+          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none, key: windows-arm64}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl, key: musl-x64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl, key: musl-arm64}
+    env:
+      UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
+      UV_PYTHON_PREFERENCE: only-managed
+      TRANSFER_TARGET: ${{ matrix.platform.key }}
+      EXPECTED_OS: ${{ matrix.platform.os }}
+      EXPECTED_ARCH: ${{ matrix.platform.arch }}
+      EXPECTED_PYTHON: ${{ matrix.python }}
+      EXPECTED_LIBC: ${{ matrix.platform.libc }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        id: setup
+        with:
+          version-file: pyproject.toml
+          python-version: ${{ env.UV_PYTHON }}
+          enable-cache: false
+      - name: Download all native producer bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: native-zip-*
+          path: transfer-in/
+          merge-multiple: false
+      - name: Download only this target and Python's producer bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: target-zip-${{ matrix.platform.key }}-py${{ matrix.python }}-*
+          path: transfer-in/
+          merge-multiple: false
+      - name: Install managed Python
+        if: matrix.platform.libc != 'musl'
+        run: uv python install "${{ env.UV_PYTHON }}"
+      - name: Install locked runtime dependencies
+        if: matrix.platform.libc != 'musl'
+        run: uv sync --locked --no-dev --python "${{ env.UV_PYTHON }}"
+      - name: Consume every producer's native and targeted bundles
+        if: matrix.platform.libc != 'musl'
+        run: >-
+          uv run --locked --no-dev --python "${{ env.UV_PYTHON }}" python scripts/ci_transfer.py consume
+          --target "${{ matrix.platform.key }}" --producer-count 40 --input transfer-in --output transfer-results
+          --expected-os "${{ matrix.platform.os }}" --expected-arch "${{ matrix.platform.arch }}"
+          --expected-python "${{ matrix.python }}" --expected-libc "${{ matrix.platform.libc }}"
+      - name: Consume ZIP bundles in native musl container
+        if: matrix.platform.libc == 'musl'
+        shell: bash
+        env:
+          TRANSFER_MODE: consume
+          UV_VERSION: ${{ steps.setup.outputs.uv-version }}
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)"
+          --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" --workdir /workspace
+          --env HOME=/tmp/ci-home --env UV_PYTHON --env UV_PYTHON_PREFERENCE
+          --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv --env XDG_CACHE_HOME=/tmp/cache
+          --env UV_CACHE_DIR=/tmp/cache/uv --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python
+          --env TRANSFER_MODE --env TRANSFER_TARGET
+          --env EXPECTED_OS --env EXPECTED_ARCH --env EXPECTED_PYTHON --env EXPECTED_LIBC
+          "ghcr.io/astral-sh/uv:${UV_VERSION}-alpine3.22" sh scripts/ci-transfer-musl.sh
+      - name: Preserve JSON and JUnit reports even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: transfer-results-${{ matrix.platform.runner }}-${{ matrix.platform.libc }}-py${{ matrix.python }}
+          path: transfer-results/
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 1
+
+  required:
+    name: Required ZIP Transfer Checks
+    runs-on: ubuntu-24.04
+    needs: [produce, consume]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Require all 40 producers and all 40 consumers to succeed
+        env:
+          PRODUCE_RESULT: ${{ needs.produce.result }}
+          CONSUME_RESULT: ${{ needs.consume.result }}
+        run: |
+          test "$PRODUCE_RESULT" = success
+          test "$CONSUME_RESULT" = success

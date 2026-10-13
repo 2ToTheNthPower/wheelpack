@@ -30,11 +30,12 @@ jobs:
           - {runner: ubuntu-24.04-arm, arch: aarch64}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: jetify-com/devbox-install-action@734088efddca47cf44ff8a09289c6d0e51b73218 # v0.12.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        id: uv
         with:
-          devbox-version: 0.18.3
-      # Docker is Devbox-managed. Nix cannot run inside musl: the official uv image
-      # supplies the same pinned uv as Devbox, with no apk/pip/system Python fallback.
+          version-file: pyproject.toml
+          enable-cache: false
+      # Use the project's uv pin, with no apk/pip/system Python fallback.
       # ARM uses a native ARM runner, not QEMU; the script asserts the process architecture.
       - name: Run full suite in native musl container
         shell: bash
@@ -42,12 +43,9 @@ jobs:
           UV_PYTHON: cpython-${{ matrix.python }}-linux-${{ matrix.platform.arch }}-musl
           EXPECTED_ARCH: ${{ matrix.platform.arch }}
           EXPECTED_PYTHON: ${{ matrix.python }}
+          UV_VERSION: ${{ steps.uv.outputs.uv-version }}
         run: |
-          read -r tool uv_version rest <<< "$(devbox run -- uv --version)"
-          test "$tool" = uv
-          # Variables in the single-quoted script expand inside the container.
-          # shellcheck disable=SC2016
-          devbox run -- docker run --rm \
+          docker run --rm \
             --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
             --workdir /workspace \
             --env UV_PYTHON --env EXPECTED_ARCH --env EXPECTED_PYTHON \
@@ -56,13 +54,7 @@ jobs:
             --env XDG_CACHE_HOME=/tmp/cache \
             --env UV_CACHE_DIR=/tmp/cache/uv \
             --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python \
-            "ghcr.io/astral-sh/uv:${uv_version}-alpine3.22" sh -ec '
-              uv python install "$UV_PYTHON"
-              uv sync --locked --python "$UV_PYTHON"
-              uv run --locked --python "$UV_PYTHON" python scripts/ci.py \
-                --expected-os linux --expected-arch "$EXPECTED_ARCH" \
-                --expected-python "$EXPECTED_PYTHON" --expected-libc musl
-            '
+            "ghcr.io/astral-sh/uv:${UV_VERSION}-alpine3.22" sh scripts/ci-musl.sh
       - name: Preserve test reports even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

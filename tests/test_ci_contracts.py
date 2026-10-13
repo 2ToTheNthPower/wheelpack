@@ -733,13 +733,15 @@ def test_expected_success_cli_wheel_built_from_sdist(tmp_path, installed_pip_whe
     }
     env.update(PIP_CONFIG_FILE=os.devnull, UV_PYTHON_DOWNLOADS="never")
     built = command(
-        ["uv", "build", "--offline", "--sdist", "--out-dir", artifacts, root], tmp_path, env
+        ["uv", "build", "--python", sys.executable, "--offline", "--sdist",
+         "--out-dir", artifacts, root], tmp_path, env
     )
     assert built.returncode == 0, built.stdout + built.stderr
     sdists = list(artifacts.glob("*.tar.gz"))
     assert len(sdists) == 1
     built = command(
-        ["uv", "build", "--offline", "--wheel", "--out-dir", artifacts, sdists[0]], tmp_path, env
+        ["uv", "build", "--python", sys.executable, "--offline", "--wheel",
+         "--out-dir", artifacts, sdists[0]], tmp_path, env
     )
     assert built.returncode == 0, built.stdout + built.stderr
     wheels = list(artifacts.glob("wheelport-*.whl"))

@@ -464,14 +464,12 @@ symlink capability when privileges are unavailable, and the optional legacy
 the CI contracts already exercise the standalone installer with generated bundles;
 an entire operating system is never skipped.
 
-Devbox provisions the declared tooling, including **uv 0.12.5**; uv manages
-Python and installs dependencies with `uv sync --locked`. Windows cannot use
-Devbox/Nix, and Nix cannot run inside the musl container. These are the only
-provisioning exceptions: Windows uses the pinned `setup-uv` action with the uv
-version read from `devbox.json`, and musl uses the official uv Alpine 3.22 image
-with its version derived from Devbox's uv. Both still use only uv-managed Python
-and locked dependency synchronization, not ad hoc installers or system-Python
-fallbacks.
+CI does not use Devbox or Nix. All hosted runners use the pinned `setup-uv`
+action, reading **uv 0.12.5** from `[tool.uv].required-version` in `pyproject.toml`.
+uv manages Python and installs dependencies with `uv sync --locked`.
+The musl jobs use the official uv Alpine 3.22 image at that same version and run
+`scripts/ci-musl.sh` inside the container. Workflow lint uses the version-pinned
+actionlint image. Devbox remains an optional local development environment only.
 
 [scripts/ci.py](scripts/ci.py) checks the OS, process architecture, Python version,
 libc, and 64-bit CPython before invoking pytest with that exact interpreter.
@@ -514,5 +512,35 @@ Use the interpreter and expected values matching your actual host for other
 native jobs. Local musl reproduction also requires a running Docker daemon;
 Devbox supplies the client, not the daemon. The matrix above documents configured
 coverage; consult workflow runs and their uploaded reports for execution results.
+
+### Cross-Machine ZIPs
+
+[ZIP Transfer](.github/workflows/zip-transfer.yml) adds an independent artifact
+mesh: **40 producers and 40 consumers** across the same Python versions and
+platforms, including native musl containers.
+
+Every producer builds wheelport's wheel, then packs its native ZIP and 32
+destination-specific ZIPs covering eight platform/architecture/libc targets and
+Python 3.11-3.14. These bundles include the real prebuilt `msgpack` 1.2.3 native
+extension; cross-compilation is not used.
+
+Every consumer downloads all 40 native ZIPs and its matching target ZIP from
+each producer. This gives **1,600 producer/consumer pairs**, with two checks per
+pair: a native-bundle compatibility check and a targeted-bundle successful install.
+All archives must extract correctly and pass archive SHA-256/CRC and manifest
+checks. Compatible native bundles must install; incompatible ones must reject
+with the independently predicted error and without creating an environment.
+Targeted bundles must install and exercise wheelport's CLI and msgpack's compiled
+extension with networking denied.
+
+Target-specific artifacts are downloaded selectively to avoid transferring every
+foreign payload to every consumer. ZIP artifacts are retained for one day and
+uploaded without an extra compression pass. The full matrix produces 1,320 ZIPs
+per run, so it uses more artifact storage and runner time than the ordinary suite.
+Consumer JSON and JUnit reports record every pair, including failures.
+
+Require `Required ZIP Transfer Checks` alongside the native and musl required
+checks to gate merges on this matrix. These workflows are configured locally;
+their remote results are available only after the changes are pushed.
 
 License: MIT; see [LICENSE](LICENSE).
