@@ -13,8 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize("workflow", ["ci.yml", "musl.yml", "zip-transfer.yml"])
-def test_ci_bootstrap_is_independent_of_local_devbox(workflow):
+def test_ci_bootstrap_is_self_contained(workflow):
     text = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+    # Guard against reintroducing a local environment manager into CI.
     assert "devbox" not in text.lower()
     assert "version-file: pyproject.toml" in text
     assert "python-arch:" not in text

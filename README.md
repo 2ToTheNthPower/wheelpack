@@ -14,16 +14,16 @@ existing pip installation, or network access.
 
 ## Installation
 
-Python **3.11 or newer** is required. From this checkout, use the managed
-development environment:
+Python **3.11 or newer** is required, plus [uv](https://docs.astral.sh/uv/) to
+manage the environment and interpreter. From this checkout:
 
 ```sh
-devbox run -- uv sync
-devbox run -- uv run wheelport --help
+uv sync
+uv run wheelport --help
 ```
 
 The examples below use an installed `wheelport` CLI. To run them from this
-checkout, replace `wheelport` with `devbox run -- uv run wheelport`.
+checkout, replace `wheelport` with `uv run wheelport`.
 
 The connected packer includes `packaging>=25`, `pip>=25`, `uv==0.12.5`,
 `poetry>=2`, and `poetry-plugin-export>=1.9` as default runtime dependencies.
@@ -48,8 +48,7 @@ not add solver packages to unrelated application bundles.
 
 Build backends, compilers, VCS clients, and native headers may also be required
 when a native-mode input must be built from source. Explicit-target mode never
-builds sources. Manage project tooling through Devbox; this repository's
-environment is described below.
+builds sources. Project tooling is managed with uv; see Development below.
 
 ## Packing
 
@@ -110,16 +109,16 @@ compilation or add Zig compilation.
 
 ```sh
 # Linux x86_64, glibc 2.17 baseline, with exact CPython patch compatibility.
-devbox run -- uv run wheelport pack requirements.txt -o linux-3127.zip \
+uv run wheelport pack requirements.txt -o linux-3127.zip \
   --python-version 3.12.7 --python-platform x86_64-manylinux_2_17 --abi cp312
 
 # Windows ARM64 dependencies from an existing uv lock; omit the root project.
-devbox run -- uv run wheelport pack ./my-project -o windows-arm64.zip \
+uv run wheelport pack ./my-project -o windows-arm64.zip \
   --manager uv --dependencies-only \
   --python-version 3.12 --python-platform aarch64-pc-windows-msvc
 
 # macOS ARM64 with an already built root project wheel.
-devbox run -- uv run wheelport pack ./my-project -o macos-arm64.zip \
+uv run wheelport pack ./my-project -o macos-arm64.zip \
   --python-version 3.12.7 --python-platform aarch64-apple-darwin \
   --project-wheel ./wheelhouse/my_project-1.0-py3-none-any.whl
 ```
@@ -408,20 +407,21 @@ explicit local wheels with `--no-deps`, so it is not followed to fetch packages.
 
 ## Development
 
-Use Devbox for tooling and uv for Python dependencies and the interpreter:
+Use uv for Python dependencies and the interpreter:
 
 ```sh
-devbox run -- uv sync
-devbox run test
-devbox run lint
-devbox run build
+uv sync
+uv run pytest
+uv run ruff check .
+uv build
 ```
 
-`devbox.json` and `devbox.lock` define tooling; `pyproject.toml` and `uv.lock`
-define Python dependencies. Keep those source-of-truth files and their locks in
-sync. The development group includes only pytest and Ruff; uv, Poetry, and its
-export plugin are runtime dependencies. Devbox also supplies uv 0.12.5 for
-managing the checkout before its Python dependencies are installed.
+`pyproject.toml` and `uv.lock` are the source of truth for Python dependencies;
+keep them in sync. The development group includes only pytest and Ruff; uv,
+Poetry, and its export plugin are runtime dependencies. Install uv separately
+(for example with the official installer); it is not vendored here. uv reads
+`[tool.uv].required-version` in `pyproject.toml` and refuses to run under a
+different version.
 
 ## CI
 
@@ -463,12 +463,12 @@ symlink capability when privileges are unavailable, and the optional legacy
 the CI contracts already exercise the standalone installer with generated bundles;
 an entire operating system is never skipped.
 
-CI does not use Devbox or Nix. All hosted runners use the pinned `setup-uv`
+All hosted runners use the pinned `setup-uv`
 action, reading **uv 0.12.5** from `[tool.uv].required-version` in `pyproject.toml`.
 uv manages Python and installs dependencies with `uv sync --locked`.
 The musl jobs use the official uv Alpine 3.22 image at that same version and run
 `scripts/ci-musl.sh` inside the container. Workflow lint uses the version-pinned
-actionlint image. Devbox remains an optional local development environment only.
+actionlint image.
 
 [scripts/ci.py](scripts/ci.py) checks the OS, process architecture, Python version,
 libc, and 64-bit CPython before invoking pytest with that exact interpreter.
@@ -499,17 +499,17 @@ To lint the workflows and reproduce a matching Linux x86_64/glibc Python 3.11
 test job locally:
 
 ```sh
-devbox run lint-ci
-devbox run -- uv python install 3.11
-devbox run -- uv sync --locked --python 3.11
-devbox run -- uv run --locked --python 3.11 python scripts/ci.py \
+actionlint .github/workflows/*.yml
+uv python install 3.11
+uv sync --locked --python 3.11
+uv run --locked --python 3.11 python scripts/ci.py \
   --expected-os linux --expected-arch x86_64 \
   --expected-python 3.11 --expected-libc gnu
 ```
 
-Use the interpreter and expected values matching your actual host for other
-native jobs. Local musl reproduction also requires a running Docker daemon;
-Devbox supplies the client, not the daemon. The matrix above documents configured
+`actionlint` must be installed separately. Use the interpreter and expected
+values matching your actual host for other native jobs. Local musl reproduction
+also requires a running Docker daemon. The matrix above documents configured
 coverage; consult workflow runs and their uploaded reports for execution results.
 
 ### Cross-Machine ZIPs

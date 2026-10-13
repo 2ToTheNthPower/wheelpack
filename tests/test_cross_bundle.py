@@ -489,3 +489,112 @@ def test_real_matching_explicit_bundle_installs_offline(
     assert result.returncode == 0, result.stdout + result.stderr
     assert "NETWORK FORBIDDEN" not in result.stdout + result.stderr
     assert "Installed bundle into" in result.stdout
+
+
+LINUX_TARGET = "x86_64-manylinux_2_17"
+MACOS_TARGET = "aarch64-apple-darwin"
+WINDOWS_TARGET = "x86_64-pc-windows-msvc"
+
+
+@pytest.fixture
+def offline_links(tmp_path, monkeypatch):
+    """A local wheelhouse plus pip settings that keep resolution fully offline."""
+    monkeypatch.setenv("PIP_CONFIG_FILE", os.devnull)
+    monkeypatch.setenv("PIP_NO_CACHE_DIR", "1")
+    monkeypatch.setenv("PIP_DISABLE_PIP_VERSION_CHECK", "1")
+    return tmp_path / "links"
+
+
+def _pack_manifest_wheels(tmp_path, input, links, pip, target):
+    output = tmp_path / f"bundle-{target.python_platform}.zip"
+    bundle.pack(
+        input, output, target=target, no_index=True,
+        find_links=[str(links)], pip_wheel=pip,
+    )
+    with zipfile.ZipFile(output) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    return {entry["name"]: entry["filename"] for entry in manifest["wheels"]}
+
+
+def test_platform_conditional_requirements_resolve_per_target(
+    tmp_path, offline_links, installed_pip_wheel,  # noqa: F811
+):
+    """One project, three explicit targets, three different dependency outcomes."""
+    wheel(offline_links, "commonpkg")
+    wheel(offline_links, "posixhelper", tag="cp311-cp311-manylinux2014_x86_64")
+    wheel(offline_links, "posixhelper", tag="cp311-cp311-macosx_11_0_arm64")
+    wheel(offline_links, "winhelper", tag="cp311-cp311-win_amd64")
+    input = tmp_path / "requirements.txt"
+    input.write_text(
+        'posixhelper; sys_platform != "win32"\n'
+        'winhelper; sys_platform == "win32"\n'
+        "commonpkg\n",
+        encoding="utf-8",
+    )
+    expected = {
+        LINUX_TARGET: {
+            "commonpkg": "commonpkg-1-py3-none-any.whl",
+            "posixhelper": "posixhelper-1-cp311-cp311-manylinux2014_x86_64.whl",
+        },
+        MACOS_TARGET: {
+            "commonpkg": "commonpkg-1-py3-none-any.whl",
+            "posixhelper": "posixhelper-1-cp311-cp311-macosx_11_0_arm64.whl",
+        },
+        WINDOWS_TARGET: {
+            "commonpkg": "commonpkg-1-py3-none-any.whl",
+            "winhelper": "winhelper-1-cp311-cp311-win_amd64.whl",
+        },
+    }
+    for platform, wheels in expected.items():
+        target = Target.create(python_version="3.11", python_platform=platform)
+        selected = _pack_manifest_wheels(tmp_path, input, offline_links, installed_pip_wheel, target)
+        assert selected.pop("pip").startswith("pip-")
+        assert selected == wheels
+
+
+def test_missing_platform_wheel_fails_only_for_that_target(
+    tmp_path, offline_links, installed_pip_wheel,  # noqa: F811
+):
+    """A linux/mac-only wheel packs for those targets and fails cleanly for Windows."""
+    wheel(offline_links, "platformwheel", tag="cp311-cp311-manylinux2014_x86_64")
+    wheel(offline_links, "platformwheel", tag="cp311-cp311-macosx_11_0_arm64")
+    input = tmp_path / "requirements.txt"
+    input.write_text("platformwheel\n", encoding="utf-8")
+    for platform, expected_wheel in (
+        (LINUX_TARGET, "platformwheel-1-cp311-cp311-manylinux2014_x86_64.whl"),
+        (MACOS_TARGET, "platformwheel-1-cp311-cp311-macosx_11_0_arm64.whl"),
+    ):
+        target = Target.create(python_version="3.11", python_platform=platform)
+        selected = _pack_manifest_wheels(tmp_path, input, offline_links, installed_pip_wheel, target)
+        assert selected["platformwheel"] == expected_wheel
+    windows = tmp_path / "windows.zip"
+    target = Target.create(python_version="3.11", python_platform=WINDOWS_TARGET)
+    with pytest.raises(ValueError):
+        bundle.pack(input, windows, target=target, no_index=True,
+                    find_links=[str(offline_links)], pip_wheel=installed_pip_wheel)
+    assert not windows.exists()
+
+
+def test_transitive_platform_conditional_dependencies(
+    tmp_path, offline_links, installed_pip_wheel,  # noqa: F811
+):
+    """Transitive markers pick a different native wheel on each target."""
+    wheel(
+        offline_links, "app",
+        dependencies=['ffi; sys_platform != "win32"', 'winffi; sys_platform == "win32"'],
+    )
+    wheel(offline_links, "ffi", tag="cp311-cp311-manylinux2014_x86_64")
+    wheel(offline_links, "ffi", tag="cp311-cp311-macosx_11_0_arm64")
+    wheel(offline_links, "winffi", tag="cp311-cp311-win_amd64")
+    input = tmp_path / "requirements.txt"
+    input.write_text("app\n", encoding="utf-8")
+    expected = {
+        LINUX_TARGET: {"app", "ffi"},
+        MACOS_TARGET: {"app", "ffi"},
+        WINDOWS_TARGET: {"app", "winffi"},
+    }
+    for platform, names in expected.items():
+        target = Target.create(python_version="3.11", python_platform=platform)
+        selected = _pack_manifest_wheels(tmp_path, input, offline_links, installed_pip_wheel, target)
+        selected.pop("pip")
+        assert set(selected) == names
