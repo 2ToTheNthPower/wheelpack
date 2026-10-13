@@ -25,29 +25,26 @@ devbox run -- uv run wheelport --help
 The examples below use an installed `wheelport` CLI. To run them from this
 checkout, replace `wheelport` with `devbox run -- uv run wheelport`.
 
-The connected packer uses pip for artifact retrieval and wheel building. pip is
-a declared wheelport dependency (`pip>=25`), alongside `packaging`; it is not
-assumed to come from the system interpreter.
+The connected packer includes `packaging>=25`, `pip>=25`, `uv==0.12.5`,
+`poetry>=2`, and `poetry-plugin-export>=1.9` as default runtime dependencies.
+No separate solver installation is required. wheelport invokes pip, uv, and
+Poetry as modules with its own Python interpreter, so dependency console scripts
+do not need to be on PATH, including when wheelport is installed with `uv tool`.
+It does not fall back to system pip or globally installed solvers.
 
-Additional tools depend on the input:
-
-Use a recent uv release supporting `uv export --format pylock.toml` and
-`uv pip compile --format pylock.toml`; development is tested with uv 0.12.5.
+The input determines which included tools and project locks are used:
 
 | Input | Tools needed on the packing machine |
 | --- | --- |
 | Ordinary requirements file, native mode | wheelport's declared pip dependency |
-| Requirements file, explicit target | `uv` CLI and wheelport's declared pip dependency |
-| PEP 621 `pyproject.toml`, including `--manager pip` | `uv` CLI |
-| uv project | `uv` CLI and an existing, current `uv.lock` |
-| Poetry project | `uv` CLI, Poetry, its export plugin, and an existing, current `poetry.lock` |
+| Requirements file, explicit target | included uv and pip |
+| PEP 621 `pyproject.toml`, including `--manager pip` | included uv |
+| uv project | included uv and an existing, current `uv.lock` |
+| Poetry project | included uv, Poetry, its export plugin, and an existing, current `poetry.lock` |
 
-Poetry and its export plugin are not wheelport runtime dependencies. Install
-them separately, for example:
-
-```sh
-devbox run -- uv tool install poetry --with poetry-plugin-export
-```
+These defaults increase the installed dependency graph and the size of bundles
+that include wheelport itself, including the CI ZIP-transfer bundles. They do
+not add solver packages to unrelated application bundles.
 
 Build backends, compilers, VCS clients, and native headers may also be required
 when a native-mode input must be built from source. Explicit-target mode never
@@ -190,7 +187,7 @@ are not available; wheelport never substitutes host values for them.
   resolution plan, including selected extras and groups. Native mode supports
   dynamic dependencies; explicit mode requires static dependency metadata.
   This route does not require a manager lock, and ignores uv-specific sources
-  and configuration during resolution. It still requires the uv executable.
+  and configuration during resolution. It uses wheelport's included uv module.
 - **uv projects:** `uv.lock` must exist and be fresh. `uv export --locked`
   checks freshness without implicitly updating the lock. Only explicitly
   selected extras/groups are included; default and dev groups are disabled.
@@ -422,7 +419,9 @@ devbox run build
 
 `devbox.json` and `devbox.lock` define tooling; `pyproject.toml` and `uv.lock`
 define Python dependencies. Keep those source-of-truth files and their locks in
-sync. The development group includes pytest, Ruff, Poetry, and its export plugin.
+sync. The development group includes only pytest and Ruff; uv, Poetry, and its
+export plugin are runtime dependencies. Devbox also supplies uv 0.12.5 for
+managing the checkout before its Python dependencies are installed.
 
 ## CI
 

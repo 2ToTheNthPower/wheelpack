@@ -9,13 +9,22 @@ description = "Carry Python environments across the air gap as self-contained wh
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["packaging>=25", "pip>=25"]
+dependencies = [
+    "packaging>=25",
+    "pip>=25",
+    "poetry>=2",
+    "poetry-plugin-export>=1.9",
+    "uv==0.12.5",
+]
 
 [project.scripts]
 wheelport = "wheelport.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.11", "poetry>=2", "poetry-plugin-export>=1.9"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.11",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

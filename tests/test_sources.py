@@ -542,6 +542,8 @@ def test_useful_errors_redact_urls_and_credentials(tmp_path):
         sources._run(["uv", "https://user:secret@host"], tmp_path)
     text = str(caught.value)
     assert "Resolution failed" in text and "exit 2" in text
+    assert "Command failed (exit 2): uv " in text
+    assert sys.executable not in text
     assert "secret" not in text and "abc" not in text and "user:" not in text
 
 
@@ -565,6 +567,7 @@ def test_scoped_subprocess_environment_keeps_credentials_and_netrc(tmp_path):
         ) as run,
     ):
         sources._run(["uv"], tmp_path, scoped=True)
+    assert run.call_args.args[0] == [sys.executable, "-m", "uv"]
     env = run.call_args.kwargs["env"]
     assert "UV_EXTRA_INDEX_URL" not in env and "UV_FIND_LINKS" not in env
     assert env["UV_INDEX_PRIVATE_PASSWORD"] == "secret" and env["NETRC"] == "/netrc"
@@ -590,6 +593,7 @@ def test_native_uv_build_keeps_uv_settings_but_disables_pip_config(tmp_path):
         ) as run,
     ):
         sources._uv_build(str(tmp_path), tmp_path, tmp_path / "wheels", [])
+    assert run.call_args.args[0][:4] == [sys.executable, "-m", "uv", "build"]
     env = run.call_args.kwargs["env"]
     assert env["UV_INDEX"] == "https://native.invalid"
     assert "PIP_INDEX_URL" not in env

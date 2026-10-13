@@ -103,7 +103,10 @@ def _run(
             env["PIP_CONFIG_FILE"] = os.devnull
         if env_overrides:
             env = {**(os.environ if env is None else env), **env_overrides}
-        result = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=env, check=False)
+        command = [sys.executable, "-m", *args] if args[0] in {"uv", "poetry"} else args
+        result = subprocess.run(
+            command, cwd=cwd, capture_output=True, text=True, env=env, check=False
+        )
     except OSError:
         raise ValueError(f"Could not run {Path(args[0]).name}") from None
     if result.returncode:
