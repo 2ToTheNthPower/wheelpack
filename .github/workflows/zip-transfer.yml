@@ -90,260 +90,70 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      # Keep each target/Python pair separate so consumers download only their 40 targeted bundles.
-      - name: Upload linux-x64 / Python 3.11
+      # One artifact per target key, carrying every Python variant. Grouping keeps
+      # a run under the 1000-entry artifact listing limit while consumers still
+      # download only their own target key.
+      - name: Upload linux-x64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-x64-py3.11/
+          name: target-zip-linux-x64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-x64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-x64 / Python 3.12
+      - name: Upload linux-arm64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-x64-py3.12/
+          name: target-zip-linux-arm64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/linux-arm64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-x64 / Python 3.13
+      - name: Upload macOS-x64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-x64-py3.13/
+          name: target-zip-macos-x64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-x64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-x64 / Python 3.14
+      - name: Upload macOS-arm64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-x64-py3.14/
+          name: target-zip-macos-arm64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/macos-arm64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-arm64 / Python 3.11
+      - name: Upload windows-x64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-arm64-py3.11/
+          name: target-zip-windows-x64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-x64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-arm64 / Python 3.12
+      - name: Upload windows-arm64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-arm64-py3.12/
+          name: target-zip-windows-arm64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/windows-arm64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-arm64 / Python 3.13
+      - name: Upload musl-x64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-arm64-py3.13/
+          name: target-zip-musl-x64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-x64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - name: Upload linux-arm64 / Python 3.14
+      - name: Upload musl-arm64 targets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-arm64-py3.14/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-x64 / Python 3.11
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-x64-py3.11/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-x64 / Python 3.12
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-x64-py3.12/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-x64 / Python 3.13
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-x64-py3.13/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-x64 / Python 3.14
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-x64-py3.14/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-arm64 / Python 3.11
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-arm64-py3.11/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-arm64 / Python 3.12
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-arm64-py3.12/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-arm64 / Python 3.13
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-arm64-py3.13/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-arm64 / Python 3.14
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-arm64-py3.14/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-x64 / Python 3.11
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-x64-py3.11/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-x64 / Python 3.12
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-x64-py3.12/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-x64 / Python 3.13
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-x64-py3.13/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-x64 / Python 3.14
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-x64-py3.14/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-arm64 / Python 3.11
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-arm64-py3.11/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-arm64 / Python 3.12
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-arm64-py3.12/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-arm64 / Python 3.13
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-arm64-py3.13/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-arm64 / Python 3.14
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-arm64-py3.14/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-x64 / Python 3.11
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-x64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-x64-py3.11/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-x64 / Python 3.12
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-x64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-x64-py3.12/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-x64 / Python 3.13
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-x64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-x64-py3.13/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-x64 / Python 3.14
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-x64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-x64-py3.14/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-arm64 / Python 3.11
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-arm64-py3.11-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-arm64-py3.11/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-arm64 / Python 3.12
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-arm64-py3.12-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-arm64-py3.12/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-arm64 / Python 3.13
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-arm64-py3.13-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-arm64-py3.13/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-arm64 / Python 3.14
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-arm64-py3.14-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-arm64-py3.14/
+          name: target-zip-musl-arm64-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/musl-arm64/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -391,10 +201,10 @@ jobs:
           pattern: native-zip-*
           path: transfer-in/
           merge-multiple: false
-      - name: Download only this target and Python's producer bundles
+      - name: Download only this target's producer bundles
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: target-zip-${{ matrix.platform.key }}-py${{ matrix.python }}-*
+          pattern: target-zip-${{ matrix.platform.key }}-*
           path: transfer-in/
           merge-multiple: false
       - name: Install managed Python

@@ -112,8 +112,15 @@ class InstallerTests(unittest.TestCase):
 
     def test_valid_bundle_without_requirements(self):
         bootstrap, wheels = installer.verify_bundle(self.bundle)
-        self.assertEqual(bootstrap, self.bundle / "bootstrap" / self.manifest["bootstrap"]["filename"])
-        self.assertEqual(wheels, [self.bundle / "wheels" / self.manifest["wheels"][0]["filename"]])
+        # verify_bundle resolves the bundle root; canonicalize the expected paths
+        # so Windows short names and macOS /var symlinks compare equal.
+        self.assertEqual(
+            bootstrap,
+            (self.bundle / "bootstrap" / self.manifest["bootstrap"]["filename"]).resolve(),
+        )
+        self.assertEqual(
+            wheels, [(self.bundle / "wheels" / self.manifest["wheels"][0]["filename"]).resolve()]
+        )
 
     def test_tamper_fails_before_creating_environment(self):
         for section in ("bootstrap", "wheels"):

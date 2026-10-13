@@ -33,12 +33,14 @@ def test_transfer_uploads_cover_every_catalog_target():
     text = (ROOT / ".github/workflows/zip-transfer.yml").read_text(encoding="utf-8")
     keys = ("linux-x64", "linux-arm64", "macos-x64", "macos-arm64",
             "windows-x64", "windows-arm64", "musl-x64", "musl-arm64")
-    expected = {f"{key}-py{minor}" for key in keys for minor in ("3.11", "3.12", "3.13", "3.14")}
+    # One artifact per target key carries every Python variant, so the run stays
+    # below the 1000-entry artifact listing limit.
     uploads = re.findall(r"name: target-zip-([a-z0-9.-]+)-\$\{\{ env.TRANSFER_PRODUCER \}\}", text)
-    assert len(uploads) == 32
-    assert set(uploads) == expected
-    for target in expected:
-        assert f"path: transfer-out/{target}/" in text
+    assert len(uploads) == 8
+    assert set(uploads) == set(keys)
+    for key in keys:
+        assert f"path: transfer-out/{key}/" in text
+    assert "path: transfer-out/native/" in text
     assert "sh scripts/ci-transfer-musl.sh" in text
     assert "--producer-count 40" in text
     assert "merge-multiple: false" in text

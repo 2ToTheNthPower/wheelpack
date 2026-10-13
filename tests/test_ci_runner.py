@@ -46,6 +46,9 @@ def test_ci_checks_uv_against_project_pin(monkeypatch, tmp_path, actual_uv, expe
     ])
     monkeypatch.setattr(ci.sys, "platform", "darwin")
     monkeypatch.setattr(ci.platform, "machine", lambda: "x86_64")
+    # The fake below replaces subprocess.run globally; on macOS platform.platform()
+    # reaches it via platform.architecture(), so pin the string instead.
+    monkeypatch.setattr(ci.platform, "platform", lambda: "test-platform")
     monkeypatch.setattr(ci.shutil, "which", lambda tool: tool)
     monkeypatch.setattr(ci.importlib.metadata, "version", lambda package: "1.0")
 

@@ -54,7 +54,11 @@ def payload(root, producer="one", target_id="native", members=None):
         zipped.writestr("manifest.json", json.dumps(manifest))
         zipped.writestr("install.py", "pass\n")
         for name, value in (members or {}).items():
-            zipped.writestr(name, value)
+            # ZipInfo normalizes os.sep to "/" on Windows; restore the raw name so
+            # the archive keeps backslash and other unsafe spellings verbatim.
+            info = zipfile.ZipInfo(name)
+            info.filename = name
+            zipped.writestr(info, value)
     metadata = {
         "format": 1, "producer": producer, "target_id": target_id,
         "target_key": None if target_id == "native" else "linux-x64",
@@ -323,7 +327,7 @@ def test_producer_layout_and_build_interpreter(tmp_path, monkeypatch):
         calls.append(command)
         if command[:2] == ["uv", "build"]:
             destination = Path(command[command.index("--out-dir") + 1])
-            (destination / "wheelport-0.1.0-py3-none-any.whl").write_bytes(b"project")
+            (destination / "transfer_sample-0.1.0-py3-none-any.whl").write_bytes(b"project")
         else:
             destination = Path(command[command.index("--dest") + 1])
             (destination / "pip-26.0-py3-none-any.whl").write_bytes(b"pip")
@@ -349,12 +353,13 @@ def test_producer_layout_and_build_interpreter(tmp_path, monkeypatch):
     assert "--only-binary :all:" in packs[0][0]
     assert "--only-binary" not in packs[1][0]
     assert all("msgpack==1.2.3" in requirements
-               and "wheelport @ file:" in requirements for requirements, _, _ in packs)
+               and "transfer_sample @ file:" in requirements for requirements, _, _ in packs)
     assert packs[0][2]["target"] is None
     assert packs[1][2]["target"].python_platform == "aarch64-pc-windows-msvc"
-    for name in ("native", "windows-arm64-py3.14"):
-        metadata = json.loads((tmp_path / name / "producer.json").read_text())
-        assert metadata["target_id"] == name
+    for path, target_id in ((tmp_path / "native", "native"),
+                            (tmp_path / "windows-arm64" / "py3.14", "windows-arm64-py3.14")):
+        metadata = json.loads((path / "producer.json").read_text())
+        assert metadata["target_id"] == target_id
         assert metadata["producer"] == "linux-test-py3.11"
-        assert metadata["archive_sha256"] == transfer.digest(tmp_path / name / "bundle.zip")
+        assert metadata["archive_sha256"] == transfer.digest(path / "bundle.zip")
         assert metadata["runtime"] == actual()

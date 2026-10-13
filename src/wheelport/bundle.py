@@ -77,7 +77,7 @@ def _write_lock(root: Path, entries: list[dict], target: Target | None = None) -
             f"path = {json.dumps('wheels/' + entry['filename'])}\n"
             f"hashes = {{ sha256 = {json.dumps(entry['sha256'])} }}\n"
         )
-    (root / "pylock.toml").write_text(text, encoding="utf-8")
+    (root / "pylock.toml").write_text(text, encoding="utf-8", newline="\n")
 
 
 def _check_closure(
@@ -316,18 +316,21 @@ def pack(
                 "runtime_install": "not-run" if target else "passed",
             },
         }
-        (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        (root / "manifest.json").write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
         if target:
             _write_lock(root, entries, target=target)
         else:
             _write_lock(root, entries)
         (root / "requirements.txt").write_text(
             "--no-index\n--only-binary :all:\n"
-            + "".join(
+            +             "".join(
                 f"./wheels/{entry['filename']} --hash=sha256:{entry['sha256']}\n"
                 for entry in entries
             ),
             encoding="utf-8",
+            newline="\n",
         )
         shutil.copyfile(Path(__file__).with_name("install.py"), root / "install.py")
         (root / "README.txt").write_text(
@@ -340,6 +343,7 @@ def pack(
             "Hashes detect corruption, not malicious replacement of the entire bundle.\n"
             "Only install bundles from trusted sources.\n",
             encoding="utf-8",
+            newline="\n",
         )
         # Validate dependency closure with precisely the installer shipped to the target.
         if target is None:

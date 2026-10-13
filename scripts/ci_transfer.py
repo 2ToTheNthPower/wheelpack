@@ -1,8 +1,8 @@
 """Produce transferable ZIPs and test downloaded ZIPs without network access.
 
 Artifacts contain bundle.zip and producer.json. Upload native/ as
-native-zip-${producer}, and each ${key}-py${minor}/ separately as
-target-zip-${key}-py${minor}-${producer}. Download without merging artifacts.
+native-zip-${producer}, and each ${key}/py${minor}/ grouped under one
+target-zip-${key}-${producer} artifact. Download without merging artifacts.
 `targets` prints a JSON array with id, key, python, and python_platform fields.
 Consumers write results.json and junit.xml, including failures and rejections.
 """
@@ -70,16 +70,15 @@ sys.argv[0] = installer
 runpy.run_path(installer, run_name='__main__')
 """
 SMOKE = AUDIT_HOOK + """
-import importlib.machinery, importlib.metadata, runpy
-import wheelport, msgpack, msgpack._cmsgpack
+import importlib.machinery, importlib.metadata
+import transfer_sample, msgpack, msgpack._cmsgpack
+assert transfer_sample.__version__ == '0.1.0'
+assert importlib.metadata.version('transfer-sample') == '0.1.0'
 assert any(msgpack._cmsgpack.__file__.endswith(suffix)
            for suffix in importlib.machinery.EXTENSION_SUFFIXES)
 assert importlib.metadata.version('msgpack') == '1.2.3'
 value = {'transfer': [1, 'native', True]}
 assert msgpack.unpackb(msgpack.packb(value), raw=False) == value
-assert wheelport.__version__ == sys.argv[1]
-sys.argv = ['wheelport', '--version']
-runpy.run_module('wheelport', run_name='__main__')
 """
 
 
@@ -159,12 +158,13 @@ def produce(args, actual):
     output.mkdir(parents=True, exist_ok=True)
     dist = output / "dist"
     dist.mkdir()
+    sample = ROOT / "tests" / "transfer_sample"
     sources._run(
-        ["uv", "build", "--wheel", "--python", sys.executable, "--out-dir", str(dist)], ROOT
+        ["uv", "build", "--wheel", "--python", sys.executable, "--out-dir", str(dist)], sample
     )
-    wheels = list(dist.glob("wheelport-*.whl"))
+    wheels = list(dist.glob("transfer_sample-*.whl"))
     if len(wheels) != 1:
-        raise ValueError("Build must produce exactly one wheelport wheel")
+        raise ValueError("Build must produce exactly one transfer sample wheel")
     bootstrap = output / "bootstrap"
     bootstrap.mkdir()
     pip_version = importlib.metadata.version("pip")
@@ -178,7 +178,7 @@ def produce(args, actual):
         raise ValueError("Bootstrap must contain exactly one pip wheel")
     requirements = output / "requirements.txt"
     requirements.write_text(
-        f"wheelport @ {wheels[0].as_uri()}\nmsgpack==1.2.3\n"
+        f"transfer_sample @ {wheels[0].as_uri()}\nmsgpack==1.2.3\n"
         f"pip=={pip_version}\npackaging=={packaging_version}\n", encoding="utf-8"
     )
     native_requirements = output / "native-requirements.txt"
@@ -189,8 +189,13 @@ def produce(args, actual):
         target = Target.create(
             python_version=descriptor["python"], python_platform=descriptor["python_platform"]
         ) if descriptor else None
-        directory = output / (descriptor["id"] if descriptor else "native")
-        directory.mkdir()
+        # Group every Python variant of a target key under one directory so a
+        # single artifact carries them, keeping the artifact count under the
+        # 1000-entry limit of the artifact listing API.
+        directory = output / descriptor["key"] / f"py{descriptor['python']}" if descriptor else (
+            output / "native"
+        )
+        directory.mkdir(parents=True)
         archive = bundle.pack(
             requirements if target else native_requirements, directory / "bundle.zip",
             manager="pip", pip_wheel=pip_wheels[0],

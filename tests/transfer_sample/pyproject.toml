@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "transfer-sample"
+version = "0.1.0"
+description = "Minimal cross-platform payload for the wheelport ZIP transfer CI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["msgpack==1.2.3"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transfer_sample"]
