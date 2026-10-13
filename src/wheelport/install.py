@@ -23,7 +23,9 @@ class InstallError(Exception):
 def _libc() -> list[str]:
     """Identify libc, including musl via this interpreter's ELF runtime loader."""
     reported = list(platform.libc_ver())
-    if reported[0] not in ("", "unknown") or sys.platform != "linux":
+    # Some musl interpreters report the bare family "libc" with no version; fall
+    # through to the ELF PT_INTERP probe instead of trusting that placeholder.
+    if reported[0] not in ("", "unknown", "libc") or sys.platform != "linux":
         return reported
     try:
         with Path(sys.executable).open("rb") as stream:

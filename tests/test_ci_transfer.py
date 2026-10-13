@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -139,6 +140,10 @@ def test_rejection_order_platform_before_python():
 @pytest.mark.parametrize("name", ["../escape", "/absolute", "C:/drive", "a\\escape",
                                   "./install.py", "a//install.py"])
 def test_archive_rejects_unsafe_paths(tmp_path, name):
+    if os.name == "nt" and "\\" in name:
+        # zipfile normalizes os.sep to "/" while reading on Windows, so the raw
+        # backslash never reaches validation and the normalized name is safe.
+        pytest.skip("Windows zipfile rewrites backslashes before validation")
     archive, metadata = payload(tmp_path, members={name: "bad"})
     with pytest.raises(ValueError, match="Unsafe"):
         transfer.read_archive(archive, metadata, tmp_path / "extracted")

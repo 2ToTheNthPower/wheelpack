@@ -308,6 +308,26 @@ class InstallerTests(unittest.TestCase):
                         self.assertEqual(installer._libc(), ["unknown", ""])
                         run.assert_called_once()
 
+    def test_libc_musl_placeholder_family_falls_through_to_elf_probe(self):
+        loader = b"/lib/ld-musl-test.so.1\x00"
+        ident = b"\x7fELF" + bytes((2, 1, 1)) + b"\x00" * 9
+        header_format, entry_format = "HHIQQQIHHHHHH", "IIQQQQQQ"
+        header_size = 16 + struct.calcsize("<" + header_format)
+        entry_size = struct.calcsize("<" + entry_format)
+        offset = header_size + entry_size
+        header = ident + struct.pack("<" + header_format, 2, 0, 1, 0,
+                                     header_size, 0, 0, header_size, entry_size, 1, 0, 0, 0)
+        entry = [3, 0, offset, 0, 0, len(loader), 0, 0]
+        binary = header + struct.pack("<" + entry_format, *entry) + loader
+        with (mock.patch.object(installer.platform, "libc_ver", return_value=("libc", "")),
+              mock.patch.object(installer.sys, "platform", "linux"),
+              mock.patch.object(installer.sys, "executable", "/synthetic/python"),
+              mock.patch.object(installer.Path, "open", autospec=True,
+                                return_value=io.BytesIO(binary)),
+              mock.patch.object(installer.subprocess, "run") as run):
+            run.return_value.stderr = "musl libc (test)\nVersion 1.2.5\nDynamic Program Loader\n"
+            self.assertEqual(installer._libc(), ["musl", "1.2.5"])
+
     def test_unidentified_linux_libc_rejected_even_when_equal(self):
         for required in (["", ""], ["unknown", ""]):
             with (self.subTest(required=required),
