@@ -1,0 +1,9 @@
+.venv/
+.devbox/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+dist/
+ci-results/
+*.egg-info/
+*.zip

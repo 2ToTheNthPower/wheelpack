@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.18.3/.schema/devbox.schema.json",
+  "packages": [
+    "unzip@latest",
+    "uv@0.12.5",
+    "actionlint@latest",
+    "docker-client@latest"
+  ],
+  "shell": {
+    "init_hook": [],
+    "scripts": {
+      "test":  "uv run pytest",
+      "lint":  "uv run ruff check .",
+      "lint-ci": "actionlint .github/workflows/*.yml",
+      "build": "uv build"
+    }
+  }
+}

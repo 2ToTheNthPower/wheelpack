@@ -1,0 +1,148 @@
+name: CI
+
+'on':
+  push:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      UV_PYTHON: cpython-3.12-linux-x86_64-gnu
+      UV_PYTHON_PREFERENCE: only-managed
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: jetify-com/devbox-install-action@734088efddca47cf44ff8a09289c6d0e51b73218 # v0.12.0
+        with:
+          devbox-version: 0.18.3
+      - name: Lint workflows
+        run: devbox run -- actionlint .github/workflows/*.yml
+      - name: Install managed Python and locked dependencies
+        run: |
+          devbox run -- uv python install "$UV_PYTHON"
+          devbox run -- uv sync --locked --python "$UV_PYTHON"
+      - name: Lint Python
+        run: devbox run -- uv run --locked --python "$UV_PYTHON" ruff check .
+      - name: Build wheel and sdist
+        run: devbox run -- uv build --python "$UV_PYTHON"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+
+  native:
+    name: ${{ matrix.platform.runner }} / CPython ${{ matrix.python }} / ${{ matrix.platform.arch }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+        platform:
+          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu}
+          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none}
+          - {runner: macos-15, os: macos, arch: aarch64, libc: none}
+          - {runner: windows-2022, os: windows, arch: x86_64, libc: none}
+          - {runner: windows-2025, os: windows, arch: x86_64, libc: none}
+          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
+    env:
+      UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
+      UV_PYTHON_PREFERENCE: only-managed
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: jetify-com/devbox-install-action@734088efddca47cf44ff8a09289c6d0e51b73218 # v0.12.0
+        if: runner.os != 'Windows'
+        with:
+          devbox-version: 0.18.3
+      # Devbox does not support Windows. Read its uv pin rather than maintaining a second one.
+      - name: Read Windows uv version from Devbox
+        id: windows-uv
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $packages = (Get-Content devbox.json -Raw | ConvertFrom-Json).packages
+          $pins = @($packages | Where-Object { $_ -match '^uv@' })
+          if ($pins.Count -ne 1) { throw 'Expected one uv pin in devbox.json' }
+          "version=$($pins[0].Substring(3))" >> $env:GITHUB_OUTPUT
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        if: runner.os == 'Windows'
+        with:
+          version: ${{ steps.windows-uv.outputs.version }}
+          python-version: ${{ env.UV_PYTHON }}
+          python-arch: ${{ matrix.platform.arch }}
+          enable-cache: false
+      - name: Install POSIX managed Python and locked dependencies
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          devbox run -- uv python install "$UV_PYTHON"
+          devbox run -- uv sync --locked --python "$UV_PYTHON"
+      - name: Install Windows managed Python and locked dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          uv python install "$env:UV_PYTHON"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv sync --locked --python "$env:UV_PYTHON"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run full native suite (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          EXPECTED_OS: ${{ matrix.platform.os }}
+          EXPECTED_ARCH: ${{ matrix.platform.arch }}
+          EXPECTED_PYTHON: ${{ matrix.python }}
+          EXPECTED_LIBC: ${{ matrix.platform.libc }}
+        run: |
+          devbox run -- uv run --locked --python "$UV_PYTHON" python scripts/ci.py \
+            --expected-os "$EXPECTED_OS" --expected-arch "$EXPECTED_ARCH" \
+            --expected-python "$EXPECTED_PYTHON" --expected-libc "$EXPECTED_LIBC"
+      - name: Run full native suite (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          EXPECTED_ARCH: ${{ matrix.platform.arch }}
+          EXPECTED_PYTHON: ${{ matrix.python }}
+        run: |
+          uv run --locked --python "$env:UV_PYTHON" python scripts/ci.py `
+            --expected-os windows --expected-arch "$env:EXPECTED_ARCH" `
+            --expected-python "$env:EXPECTED_PYTHON" --expected-libc none
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve test reports even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ matrix.platform.runner }}-${{ matrix.platform.arch }}-py${{ matrix.python }}
+          path: ci-results/
+          if-no-files-found: warn
+
+  required:
+    name: Required Native Checks
+    runs-on: ubuntu-24.04
+    needs: [lint-build, native]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Require every native job and lint/build job to succeed
+        env:
+          LINT_RESULT: ${{ needs.lint-build.result }}
+          TEST_RESULT: ${{ needs.native.result }}
+        run: |
+          test "$LINT_RESULT" = success
+          test "$TEST_RESULT" = success
