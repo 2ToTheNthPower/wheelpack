@@ -75,7 +75,7 @@ def test_pip_requirements_local_flat_dir(tmp_path):
     wheel = build_wheel(links, "demo")
     requirements = tmp_path / "requirements.txt"
     requirements.write_text(
-        f"--no-index\n--find-links {links}\ndemo==1 --hash=sha256:{digest(wheel)}\n",
+        f"--no-index\n--find-links {links.as_uri()}\ndemo==1 --hash=sha256:{digest(wheel)}\n",
         encoding="utf-8",
     )
     resolution = resolve(requirements, manager="pip")
@@ -92,7 +92,7 @@ def test_pip_requirements_local_html_find_links(tmp_path):
     )
     requirements = tmp_path / "requirements.txt"
     requirements.write_text(
-        f"--no-index\n--find-links {page}\ndemo==1 --hash=sha256:{digest(wheel)}\n",
+        f"--no-index\n--find-links {page.as_uri()}\ndemo==1 --hash=sha256:{digest(wheel)}\n",
         encoding="utf-8",
     )
     resolution = resolve(requirements, manager="pip")

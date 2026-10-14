@@ -138,7 +138,7 @@ def test_pack_requirements_input_copies_requirements(tmp_path):
     wheel = build_wheel(links, "demo")
     requirements = tmp_path / "requirements.txt"
     requirements.write_text(
-        f"--no-index\n--find-links {links}\ndemo==1 --hash=sha256:{digest(wheel)}\n",
+        f"--no-index\n--find-links {links.as_uri()}\ndemo==1 --hash=sha256:{digest(wheel)}\n",
         encoding="utf-8",
     )
     archive = tmp_path / "bundle.zip"
