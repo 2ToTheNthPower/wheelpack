@@ -166,14 +166,21 @@ def test_uv_project_flat_dir_packages_and_python(tmp_path):
 
 
 def test_uv_project_preserves_requires_python_range(tmp_path):
-    root = write_project(tmp_path, requires_python=">=3.11,<3.13")
+    # Keep the range compatible with the running interpreter so `uv lock` resolves.
+    upper = f"{sys.version_info.major}.{sys.version_info.minor + 1}"
+    requires = f">=3.11,<{upper}"
+    root = write_project(tmp_path, requires_python=requires)
     links = root / "links"
     build_wheel(links, "demo")
     with (root / "pyproject.toml").open("a", encoding="utf-8") as stream:
         stream.write('[tool.uv]\nno-index = true\nfind-links = ["links"]\n')
     uv_lock(root)
     resolution = resolve(root, manager="uv", no_index=True, find_links=[str(links)])
-    assert SpecifierSet(resolution.plan["requires-python"]) == SpecifierSet(">=3.11,<3.13")
+    # uv may normalize the range (for example `>=3.11,<3.12` to `==3.11.*`), so
+    # assert the bound is preserved rather than the literal spelling.
+    resolved = SpecifierSet(resolution.plan["requires-python"])
+    assert resolved.contains(host_version())
+    assert not resolved.contains(upper + ".0")
 
 
 def test_uv_project_extras_and_groups(tmp_path):
