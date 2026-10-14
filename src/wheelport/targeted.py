@@ -20,6 +20,7 @@ from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
+from . import pylock
 from . import sources as s
 from .targets import Target
 
@@ -349,7 +350,7 @@ def _compile(
             # differ from Python's AMD64/ARM64/x86 marker values.
             discovery = ["--no-deps"] if target.python_platform.endswith("-windows-msvc") else []
             try:
-                plan = s._pylock(run([*args, *discovery, str(dependencies)]))
+                plan = pylock._pylock(run([*args, *discovery, str(dependencies)]))
             except ValueError as exc:
                 if discovery and previous is not None:
                     raise ValueError(
@@ -387,7 +388,7 @@ def _compile(
                         stage = folder / "stage"
                         stage.mkdir(exist_ok=True)
                         resolution = folder / "resolved.pylock.toml"
-                        s._write_plan({**plan, "packages": [package]}, resolution, cwd)
+                        pylock._write_plan({**plan, "packages": [package]}, resolution, cwd)
                         path = folder / "wheel.txt"
                         authenticated = s._pip_auth(url, credentials)
                         path.write_text(
@@ -579,7 +580,7 @@ def collect(
             with tempfile.TemporaryDirectory(prefix="wheelport-project-") as temporary:
                 path = Path(temporary) / "pyproject.toml"
                 path.write_text(
-                    "\n".join(f'"{key}" = {s._toml_value(value)}' for key, value in static.items()),
+                    "\n".join(f'"{key}" = {pylock._toml_value(value)}' for key, value in static.items()),
                     encoding="utf-8",
                 )
                 args = [
@@ -683,7 +684,7 @@ def collect(
                 "--find-links",
                 str(local) if (local := s._local_path(link, cwd)) is not None else link,
             ]
-        plan = s._pylock(run(args, uv_root, scoped=False))
+        plan = pylock._pylock(run(args, uv_root, scoped=False))
     else:
         lock = s._toml(cwd / "poetry.lock")
         run(["poetry", "check", "--lock"])
@@ -700,12 +701,12 @@ def collect(
         exported = run(args)
         repositories = tool.get("poetry", {}).get("source", [])
         plan = {"lock-version": "1.0", "created-by": "wheelport", "packages": []}
-        for line, requirement in s._exports(exported, extras, target=target):
+        for line, requirement in pylock._exports(exported, extras, target=target):
             body = re.sub(r"\s+--hash(?:=|\s+)\S+", "", line).strip()
             requirement = _requirement(body, cwd, target, extras)
             if requirement is None:
                 continue
-            package = s._package(lock, requirement) if not requirement.url else None
+            package = pylock._package(lock, requirement) if not requirement.url else None
             source = package.get("source", {}) if package else {}
             if source.get("type") not in {None, "legacy"}:
                 raise ValueError("Explicit target Poetry source requires a prebuilt wheel URL")
@@ -731,7 +732,7 @@ def collect(
             with tempfile.TemporaryDirectory(prefix="wheelport-poetry-") as temporary:
                 path = Path(temporary) / "requirements.txt"
                 path.write_text(str(requirement) + "\n", encoding="utf-8")
-                discovered = s._pylock(
+                discovered = pylock._pylock(
                     run(
                         [
                             *compile_args,
@@ -798,7 +799,7 @@ def collect(
                 if local:
                     _metadata(local, target, extras)
             s._artifact(package, plan_cwd, tags=target.tags(), wheel_only=True)
-        s._write_plan(plan, resolution, plan_cwd)
+        pylock._write_plan(plan, resolution, plan_cwd)
         created = True
         downloads = []
         for package in _selected(s._toml(resolution), target, extras, groups):

@@ -17,9 +17,6 @@ dependencies = [
     "uv==0.12.5",
 ]
 
-[project.scripts]
-wheelport = "wheelport.cli:main"
-
 [dependency-groups]
 dev = [
     "pytest>=8",

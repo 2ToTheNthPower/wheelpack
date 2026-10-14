@@ -14,8 +14,9 @@ case "$TRANSFER_MODE" in
     set -- produce --producer "$TRANSFER_PRODUCER" --output transfer-out
     ;;
   consume)
-    : "${TRANSFER_TARGET:?Set the destination target key}"
-    set -- consume --target "$TRANSFER_TARGET" --producer-count 40 \
+    : "${TRANSFER_CONSUMER:?Set the consumer identifier}"
+    : "${TRANSFER_PURE_PRODUCER:?Set the pure bundle producer}"
+    set -- consume --consumer "$TRANSFER_CONSUMER" --pure-producer "$TRANSFER_PURE_PRODUCER" \
       --input transfer-in --output transfer-results
     ;;
   *)

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from packaging.markers import Marker, Variable
 from packaging.tags import Tag, compatible_tags, cpython_tags, mac_platforms
 
-from . import install
+from .libc import _libc
 
 _GLIBC_MINORS = (17, 28, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40)
 _ALIASES = {
@@ -56,7 +56,7 @@ def _native_platform() -> str:
     elif sys.platform == "darwin" and arch in ("x86_64", "aarch64"):
         return f"{arch}-apple-darwin"
     elif sys.platform == "linux" and arch in ("x86_64", "aarch64"):
-        family, version = install._libc()
+        family, version = _libc()
         match = re.fullmatch(r"([0-9]+)\.([0-9]+)(?:\.[0-9]+)*", version)
         if match:
             major, minor = map(int, match.groups())

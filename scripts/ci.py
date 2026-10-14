@@ -1,11 +1,14 @@
-"""Assert the CI runtime and run the complete suite without platform filtering."""
+"""Assert the CI runtime and run the complete suite with the exact interpreter.
+
+The environment checks guard against an emulated, wrong-architecture, or
+wrong-Python interpreter masquerading as the requested native runtime.
+"""
 
 import argparse
 import ctypes
 import importlib.metadata
 import json
 import platform
-import shutil
 import struct
 import subprocess
 import sys
@@ -13,8 +16,10 @@ import sysconfig
 import tomllib
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
 
-def _libc():
+
+def _libc() -> str:
     if sys.platform != "linux":
         return "none"
     try:
@@ -29,7 +34,7 @@ def _libc():
     return "unknown"
 
 
-def _architecture():
+def _architecture() -> str:
     if sys.platform == "win32":
         # platform.machine() can describe the ARM host while Python runs under x64 emulation.
         return {"win-amd64": "x86_64", "win-arm64": "aarch64", "win32": "x86"}.get(
@@ -39,21 +44,11 @@ def _architecture():
     return {"amd64": "x86_64", "arm64": "aarch64"}.get(machine, machine)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--expected-os", required=True, choices=("linux", "macos", "windows"))
-    parser.add_argument("--expected-arch", required=True, choices=("x86_64", "aarch64"))
-    parser.add_argument("--expected-python", required=True)
-    parser.add_argument("--expected-libc", required=True, choices=("gnu", "musl", "none"))
-    args = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
-    results = root / "ci-results"
-    results.mkdir(exist_ok=True)
-    os_name = {"linux": "linux", "darwin": "macos", "win32": "windows"}.get(
-        sys.platform, sys.platform
-    )
-    report = {
-        "os": os_name,
+def diagnose() -> dict:
+    return {
+        "os": {"linux": "linux", "darwin": "macos", "win32": "windows"}.get(
+            sys.platform, sys.platform
+        ),
         "arch": _architecture(),
         "machine": platform.machine(),
         "python": f"{sys.version_info.major}.{sys.version_info.minor}",
@@ -64,52 +59,84 @@ def main():
         "version": sys.version,
         "platform": platform.platform(),
         "sysconfig_platform": sysconfig.get_platform(),
-        "expected": vars(args),
         "tools": {},
     }
+
+
+def validate(expected_os: str, expected_arch: str, expected_python: str, expected_libc: str) -> dict:
+    """Return diagnostics, raising RuntimeError when the runtime is not the request."""
+    report = diagnose()
     errors = []
-    for key in ("os", "arch", "python", "libc"):
-        expected = getattr(args, f"expected_{key}")
+    for key, expected in (
+        ("os", expected_os),
+        ("arch", expected_arch),
+        ("python", expected_python),
+        ("libc", expected_libc),
+    ):
         if report[key] != expected:
             errors.append(f"Expected {key}={expected}, got {report[key]}")
     if report["implementation"] != "CPython" or report["pointer_bits"] != 64:
         errors.append("CI requires native 64-bit CPython")
     try:
-        project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         required_uv = project["tool"]["uv"]["required-version"]
         if not required_uv.startswith("=="):
             raise ValueError("CI requires an exact uv version pin")
         expected_uv = required_uv.removeprefix("==")
-        for tool, command in (("uv", ["uv", "--version"]), ("poetry", ["poetry", "--version"])):
-            if shutil.which(tool) is None:
-                raise RuntimeError(f"Required tool is missing: {tool}")
-            output = subprocess.run(command, capture_output=True, text=True, check=True)
-            report["tools"][tool] = output.stdout.strip()
+        output = subprocess.run(
+            ["uv", "--version"], capture_output=True, text=True, check=True
+        )
+        report["tools"]["uv"] = output.stdout.strip()
         if report["tools"]["uv"].split()[1] != expected_uv:
             errors.append(f"uv must match pyproject.toml: {expected_uv}")
-        for package in ("pip", "pytest", "poetry-plugin-export"):
-            report["tools"][package] = importlib.metadata.version(package)
-        subprocess.run(["poetry", "export", "--help"], capture_output=True, text=True, check=True)
+        report["tools"]["pip"] = importlib.metadata.version("pip")
     except (
         OSError,
         ValueError,
         KeyError,
-        RuntimeError,
         importlib.metadata.PackageNotFoundError,
         subprocess.CalledProcessError,
     ) as error:
         errors.append(f"CI tooling check failed: {error}")
+    report["expected"] = {
+        "os": expected_os,
+        "arch": expected_arch,
+        "python": expected_python,
+        "libc": expected_libc,
+    }
     report["errors"] = errors
-    diagnostics = json.dumps(report, indent=2) + "\n"
-    (results / "diagnostics.json").write_text(diagnostics, encoding="utf-8")
-    print(diagnostics, flush=True)
     if errors:
-        print("CI preflight failed: " + "; ".join(errors), file=sys.stderr)
+        raise RuntimeError("; ".join(errors))
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--expected-os", required=True, choices=("linux", "macos", "windows"))
+    parser.add_argument("--expected-arch", required=True, choices=("x86_64", "aarch64"))
+    parser.add_argument("--expected-python", required=True)
+    parser.add_argument("--expected-libc", required=True, choices=("gnu", "musl", "none"))
+    args = parser.parse_args()
+    results = ROOT / "ci-results"
+    results.mkdir(exist_ok=True)
+    try:
+        report = validate(
+            args.expected_os, args.expected_arch, args.expected_python, args.expected_libc
+        )
+    except RuntimeError as error:
+        (results / "diagnostics.json").write_text(
+            json.dumps({"errors": [str(error)]}, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"CI preflight failed: {error}", file=sys.stderr)
         return 1
+    (results / "diagnostics.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
+    print(json.dumps(report, indent=2), flush=True)
     # Use this exact interpreter; never let a PATH Python or .python-version select it.
     return subprocess.run(
         [sys.executable, "-m", "pytest", "--junitxml=" + str(results / "junit.xml"), "-ra"],
-        cwd=root,
+        cwd=ROOT,
         check=False,
     ).returncode
 

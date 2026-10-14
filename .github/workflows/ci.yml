@@ -47,7 +47,7 @@ jobs:
           if-no-files-found: error
 
   native:
-    name: ${{ matrix.platform.runner }} / CPython ${{ matrix.python }} / ${{ matrix.platform.arch }}
+    name: ${{ matrix.platform.runner }} / CPython ${{ matrix.python }} / ${{ matrix.platform.arch }} / ${{ matrix.platform.libc }}
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 30
     strategy:

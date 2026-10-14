@@ -26,16 +26,16 @@ jobs:
       matrix:
         python: ['3.11', '3.12', '3.13', '3.14']
         platform:
-          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
-          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
-          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu, key: linux-arm64}
-          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none, key: macos-x64}
-          - {runner: macos-15, os: macos, arch: aarch64, libc: none, key: macos-arm64}
-          - {runner: windows-2022, os: windows, arch: x86_64, libc: none, key: windows-x64}
-          - {runner: windows-2025, os: windows, arch: x86_64, libc: none, key: windows-x64}
-          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none, key: windows-arm64}
-          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl, key: musl-x64}
-          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl, key: musl-arm64}
+          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu}
+          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none}
+          - {runner: macos-15, os: macos, arch: aarch64, libc: none}
+          - {runner: windows-2022, os: windows, arch: x86_64, libc: none}
+          - {runner: windows-2025, os: windows, arch: x86_64, libc: none}
+          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl}
     env:
       UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
       UV_PYTHON_PREFERENCE: only-managed
@@ -58,7 +58,7 @@ jobs:
       - name: Install locked runtime dependencies
         if: matrix.platform.libc != 'musl'
         run: uv sync --locked --no-dev --python "${{ env.UV_PYTHON }}"
-      - name: Produce native and targeted ZIP bundles
+      - name: Produce native and pure ZIP bundles
         if: matrix.platform.libc != 'musl'
         run: >-
           uv run --locked --no-dev --python "${{ env.UV_PYTHON }}" python scripts/ci_transfer.py produce
@@ -79,81 +79,21 @@ jobs:
           --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv --env XDG_CACHE_HOME=/tmp/cache
           --env UV_CACHE_DIR=/tmp/cache/uv --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python
           --env TRANSFER_MODE --env TRANSFER_PRODUCER
-          --env GITHUB_REPOSITORY --env GITHUB_SHA --env GITHUB_RUN_ID
           --env EXPECTED_OS --env EXPECTED_ARCH --env EXPECTED_PYTHON --env EXPECTED_LIBC
           "ghcr.io/astral-sh/uv:${UV_VERSION}-alpine3.22" sh scripts/ci-transfer-musl.sh
       - name: Upload native bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: native-zip-${{ env.TRANSFER_PRODUCER }}
+          name: native-${{ env.TRANSFER_PRODUCER }}
           path: transfer-out/native/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      # One artifact per target key, carrying every Python variant. Grouping keeps
-      # a run under the 1000-entry artifact listing limit while consumers still
-      # download only their own target key.
-      - name: Upload linux-x64 targets
+      - name: Upload pure bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: target-zip-linux-x64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-x64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload linux-arm64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-linux-arm64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/linux-arm64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-x64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-x64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-x64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload macOS-arm64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-macos-arm64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/macos-arm64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-x64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-x64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-x64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload windows-arm64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-windows-arm64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/windows-arm64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-x64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-x64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-x64/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-      - name: Upload musl-arm64 targets
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: target-zip-musl-arm64-${{ env.TRANSFER_PRODUCER }}
-          path: transfer-out/musl-arm64/
+          name: pure-${{ env.TRANSFER_PRODUCER }}
+          path: transfer-out/pure/
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -169,20 +109,22 @@ jobs:
       matrix:
         python: ['3.11', '3.12', '3.13', '3.14']
         platform:
-          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
-          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu, key: linux-x64}
-          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu, key: linux-arm64}
-          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none, key: macos-x64}
-          - {runner: macos-15, os: macos, arch: aarch64, libc: none, key: macos-arm64}
-          - {runner: windows-2022, os: windows, arch: x86_64, libc: none, key: windows-x64}
-          - {runner: windows-2025, os: windows, arch: x86_64, libc: none, key: windows-x64}
-          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none, key: windows-arm64}
-          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl, key: musl-x64}
-          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl, key: musl-arm64}
+          - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: gnu}
+          - {runner: macos-15-intel, os: macos, arch: x86_64, libc: none}
+          - {runner: macos-15, os: macos, arch: aarch64, libc: none}
+          - {runner: windows-2022, os: windows, arch: x86_64, libc: none}
+          - {runner: windows-2025, os: windows, arch: x86_64, libc: none}
+          - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
+          - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl}
     env:
       UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
       UV_PYTHON_PREFERENCE: only-managed
-      TRANSFER_TARGET: ${{ matrix.platform.key }}
+      TRANSFER_CONSUMER: ${{ matrix.platform.runner }}-${{ matrix.platform.libc }}-py${{ matrix.python }}
+      # A pure-Python bundle packed once on Linux must install on every other target.
+      TRANSFER_PURE_PRODUCER: ubuntu-24.04-gnu-py3.11
       EXPECTED_OS: ${{ matrix.platform.os }}
       EXPECTED_ARCH: ${{ matrix.platform.arch }}
       EXPECTED_PYTHON: ${{ matrix.python }}
@@ -195,29 +137,28 @@ jobs:
           version-file: pyproject.toml
           python-version: ${{ env.UV_PYTHON }}
           enable-cache: false
-      - name: Download all native producer bundles
+      - name: Download native bundle for this platform
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: native-zip-*
-          path: transfer-in/
-          merge-multiple: false
-      - name: Download only this target's producer bundles
+          name: native-${{ env.TRANSFER_CONSUMER }}
+          path: transfer-in/native
+      - name: Download a foreign pure-Python bundle
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: target-zip-${{ matrix.platform.key }}-*
-          path: transfer-in/
-          merge-multiple: false
+          name: pure-${{ env.TRANSFER_PURE_PRODUCER }}
+          path: transfer-in/pure
       - name: Install managed Python
         if: matrix.platform.libc != 'musl'
         run: uv python install "${{ env.UV_PYTHON }}"
       - name: Install locked runtime dependencies
         if: matrix.platform.libc != 'musl'
         run: uv sync --locked --no-dev --python "${{ env.UV_PYTHON }}"
-      - name: Consume every producer's native and targeted bundles
+      - name: Consume native and pure ZIP bundles
         if: matrix.platform.libc != 'musl'
         run: >-
           uv run --locked --no-dev --python "${{ env.UV_PYTHON }}" python scripts/ci_transfer.py consume
-          --target "${{ matrix.platform.key }}" --producer-count 40 --input transfer-in --output transfer-results
+          --consumer "${{ env.TRANSFER_CONSUMER }}" --pure-producer "${{ env.TRANSFER_PURE_PRODUCER }}"
+          --input transfer-in --output transfer-results
           --expected-os "${{ matrix.platform.os }}" --expected-arch "${{ matrix.platform.arch }}"
           --expected-python "${{ matrix.python }}" --expected-libc "${{ matrix.platform.libc }}"
       - name: Consume ZIP bundles in native musl container
@@ -232,30 +173,26 @@ jobs:
           --env HOME=/tmp/ci-home --env UV_PYTHON --env UV_PYTHON_PREFERENCE
           --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv --env XDG_CACHE_HOME=/tmp/cache
           --env UV_CACHE_DIR=/tmp/cache/uv --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python
-          --env TRANSFER_MODE --env TRANSFER_TARGET
+          --env TRANSFER_MODE --env TRANSFER_CONSUMER --env TRANSFER_PURE_PRODUCER
           --env EXPECTED_OS --env EXPECTED_ARCH --env EXPECTED_PYTHON --env EXPECTED_LIBC
           "ghcr.io/astral-sh/uv:${UV_VERSION}-alpine3.22" sh scripts/ci-transfer-musl.sh
-      - name: Preserve JSON and JUnit reports even on failure
+      - name: Preserve consumer results even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: transfer-results-${{ matrix.platform.runner }}-${{ matrix.platform.libc }}-py${{ matrix.python }}
+          name: transfer-${{ env.TRANSFER_CONSUMER }}
           path: transfer-results/
           if-no-files-found: warn
-          compression-level: 0
           retention-days: 1
 
   required:
     name: Required ZIP Transfer Checks
     runs-on: ubuntu-24.04
-    needs: [produce, consume]
+    needs: consume
     if: always()
     timeout-minutes: 5
     steps:
-      - name: Require all 40 producers and all 40 consumers to succeed
+      - name: Require every producer and consumer job to succeed
         env:
-          PRODUCE_RESULT: ${{ needs.produce.result }}
-          CONSUME_RESULT: ${{ needs.consume.result }}
-        run: |
-          test "$PRODUCE_RESULT" = success
-          test "$CONSUME_RESULT" = success
+          TRANSFER_RESULT: ${{ needs.consume.result }}
+        run: test "$TRANSFER_RESULT" = success

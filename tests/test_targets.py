@@ -187,7 +187,7 @@ def test_platform_normalization(name, canonical, first, machine, sys_platform, s
     expected_keys = set(default_environment()) | {"extra"}
     with (
         mock.patch.object(targets.platform, "machine", side_effect=AssertionError("host probe")),
-        mock.patch.object(targets.install, "_libc", side_effect=AssertionError("host probe")),
+        mock.patch.object(targets, "_libc", side_effect=AssertionError("host probe")),
     ):
         result = target(name)
         assert result.python_platform == canonical
@@ -298,7 +298,7 @@ def test_invalid_platforms(name):
 def test_native_platform(monkeypatch, sys_platform, machine, libc, canonical):
     monkeypatch.setattr(targets.sys, "platform", sys_platform)
     monkeypatch.setattr(targets.platform, "machine", lambda: machine)
-    with mock.patch.object(targets.install, "_libc", return_value=libc) as probe:
+    with mock.patch.object(targets, "_libc", return_value=libc) as probe:
         assert Target.create(python_version="3.12").python_platform == canonical
         assert probe.call_count == (1 if sys_platform == "linux" else 0)
 
@@ -326,7 +326,7 @@ def test_native_windows_32_bit(monkeypatch):
 def test_native_libc_requires_exact_supported_baseline(monkeypatch, libc):
     monkeypatch.setattr(targets.sys, "platform", "linux")
     monkeypatch.setattr(targets.platform, "machine", lambda: "x86_64")
-    monkeypatch.setattr(targets.install, "_libc", lambda: libc)
+    monkeypatch.setattr(targets, "_libc", lambda: libc)
     with pytest.raises(ValueError, match="--python-platform"):
         Target.create(python_version="3.12")
 
@@ -452,7 +452,7 @@ def test_no_system_mutation():
     before = dict(os.environ)
     with (
         mock.patch.object(targets.platform, "machine", side_effect=AssertionError("host probe")),
-        mock.patch.object(targets.install, "_libc", side_effect=AssertionError("host probe")),
+        mock.patch.object(targets, "_libc", side_effect=AssertionError("host probe")),
     ):
         result = target("macos")
         result.resolver_args()
