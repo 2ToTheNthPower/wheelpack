@@ -76,7 +76,7 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)"
           --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" --workdir /workspace
           --env HOME=/tmp/ci-home --env UV_PYTHON --env UV_PYTHON_PREFERENCE
-          --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv --env XDG_CACHE_HOME=/tmp/cache
+          --env UV_PROJECT_ENVIRONMENT=/tmp/wheelpack-venv --env XDG_CACHE_HOME=/tmp/cache
           --env UV_CACHE_DIR=/tmp/cache/uv --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python
           --env TRANSFER_MODE --env TRANSFER_PRODUCER
           --env EXPECTED_OS --env EXPECTED_ARCH --env EXPECTED_PYTHON --env EXPECTED_LIBC
@@ -171,7 +171,7 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)"
           --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" --workdir /workspace
           --env HOME=/tmp/ci-home --env UV_PYTHON --env UV_PYTHON_PREFERENCE
-          --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv --env XDG_CACHE_HOME=/tmp/cache
+          --env UV_PROJECT_ENVIRONMENT=/tmp/wheelpack-venv --env XDG_CACHE_HOME=/tmp/cache
           --env UV_CACHE_DIR=/tmp/cache/uv --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python
           --env TRANSFER_MODE --env TRANSFER_CONSUMER --env TRANSFER_PURE_PRODUCER
           --env EXPECTED_OS --env EXPECTED_ARCH --env EXPECTED_PYTHON --env EXPECTED_LIBC

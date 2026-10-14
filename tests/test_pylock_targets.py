@@ -16,8 +16,8 @@ from helpers import build_wheel, write_project
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-from wheelport import pylock, sources, targeted
-from wheelport.targets import Target
+from wheelpack import pylock, sources, targeted
+from wheelpack.targets import Target
 
 DIGEST = "a" * 64
 

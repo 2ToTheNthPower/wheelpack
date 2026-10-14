@@ -34,7 +34,7 @@ def build_wheel(
         archive.writestr(f"{dist_info}/METADATA", metadata)
         archive.writestr(
             f"{dist_info}/WHEEL",
-            "Wheel-Version: 1.0\nGenerator: wheelport-tests\n"
+            "Wheel-Version: 1.0\nGenerator: wheelpack-tests\n"
             f"Root-Is-Purelib: {'true' if purelib else 'false'}\nTag: {tag}\n",
         )
         archive.writestr(f"{dist_info}/RECORD", "")

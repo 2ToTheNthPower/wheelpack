@@ -10,8 +10,8 @@ import pytest
 from packaging.markers import Marker, default_environment
 from packaging.tags import Tag, compatible_tags, cpython_tags, mac_platforms
 
-from wheelport import targets
-from wheelport.targets import Target
+from wheelpack import targets
+from wheelpack.targets import Target
 
 
 def target(platform="x86_64-manylinux_2_28", version="3.12.7", **kwargs):

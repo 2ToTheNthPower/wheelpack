@@ -13,7 +13,7 @@ from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-from wheelport import pylock, sources
+from wheelpack import pylock, sources
 
 DIGEST = "a" * 64
 

@@ -50,7 +50,7 @@ jobs:
             --workdir /workspace \
             --env UV_PYTHON --env EXPECTED_ARCH --env EXPECTED_PYTHON \
             --env UV_PYTHON_PREFERENCE=only-managed \
-            --env UV_PROJECT_ENVIRONMENT=/tmp/wheelport-venv \
+            --env UV_PROJECT_ENVIRONMENT=/tmp/wheelpack-venv \
             --env XDG_CACHE_HOME=/tmp/cache \
             --env UV_CACHE_DIR=/tmp/cache/uv \
             --env UV_PYTHON_INSTALL_DIR=/tmp/uv-python \

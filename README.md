@@ -1,15 +1,15 @@
-# wheelport
+# wheelpack
 
 Carry Python environments across an air gap as self-contained wheel bundles.
 The name combines **wheel**, Python's built distribution format, with **port**:
 build and collect wheels on a connected machine, then transport them to an
 offline machine for installation.
 
-By default, wheelport resolves dependencies for the packing interpreter, builds
+By default, wheelpack resolves dependencies for the packing interpreter, builds
 source distributions into wheels, and verifies a complete offline installation
 before publishing a ZIP. Explicit targets instead collect prebuilt wheels for a
 configured Python/platform/ABI and verify artifacts without running the target
-runtime. The destination needs matching Python, not wheelport, uv, Poetry, an
+runtime. The destination needs matching Python, not wheelpack, uv, Poetry, an
 existing pip installation, or network access.
 
 ## Installation
@@ -19,31 +19,31 @@ manage the environment and interpreter. From this checkout:
 
 ```sh
 uv sync
-uv run wheelport --help
+uv run wheelpack --help
 ```
 
-The examples below use an installed `wheelport` CLI. To run them from this
-checkout, replace `wheelport` with `uv run wheelport`.
+The examples below use an installed `wheelpack` CLI. To run them from this
+checkout, replace `wheelpack` with `uv run wheelpack`.
 
 The connected packer includes `packaging>=25`, `pip>=25`, `uv==0.12.5`,
 `poetry>=2`, and `poetry-plugin-export>=1.9` as default runtime dependencies.
-No separate solver installation is required. wheelport invokes pip, uv, and
+No separate solver installation is required. wheelpack invokes pip, uv, and
 Poetry as modules with its own Python interpreter, so dependency console scripts
-do not need to be on PATH, including when wheelport is installed with `uv tool`.
+do not need to be on PATH, including when wheelpack is installed with `uv tool`.
 It does not fall back to system pip or globally installed solvers.
 
 The input determines which included tools and project locks are used:
 
 | Input | Tools needed on the packing machine |
 | --- | --- |
-| Ordinary requirements file, native mode | wheelport's declared pip dependency |
+| Ordinary requirements file, native mode | wheelpack's declared pip dependency |
 | Requirements file, explicit target | included uv and pip |
 | PEP 621 `pyproject.toml`, including `--manager pip` | included uv |
 | uv project | included uv and an existing, current `uv.lock` |
 | Poetry project | included uv, Poetry, its export plugin, and an existing, current `poetry.lock` |
 
 These defaults increase the installed dependency graph and the size of bundles
-that include wheelport itself, including the CI ZIP-transfer bundles. They do
+that include wheelpack itself, including the CI ZIP-transfer bundles. They do
 not add solver packages to unrelated application bundles.
 
 Build backends, compilers, VCS clients, and native headers may also be required
@@ -54,22 +54,22 @@ builds sources. Project tooling is managed with uv; see Development below.
 
 ```sh
 # Requirements, resolved by native pip.
-wheelport pack requirements.txt -o bundle.zip
+wheelpack pack requirements.txt -o bundle.zip
 
 # A locked uv project, including its root project wheel.
-wheelport pack ./my-project -o uv-bundle.zip --manager uv
+wheelpack pack ./my-project -o uv-bundle.zip --manager uv
 
 # Select optional dependencies and dependency groups (repeatable flags).
-wheelport pack pyproject.toml -o selected.zip --manager uv --extra cli --group test
+wheelpack pack pyproject.toml -o selected.zip --manager uv --extra cli --group test
 
 # A locked Poetry project, without building the root project.
-wheelport pack ./poetry-project -o poetry-bundle.zip --manager poetry --dependencies-only
+wheelpack pack ./poetry-project -o poetry-bundle.zip --manager poetry --dependencies-only
 
 # A PEP 621 project without a manager-specific lock.
-wheelport pack pyproject.toml -o project.zip --manager pip
+wheelpack pack pyproject.toml -o project.zip --manager pip
 
 # Local artifacts, including a local pip wheel for bootstrap.
-wheelport pack requirements.txt -o local.zip --manager pip \
+wheelpack pack requirements.txt -o local.zip --manager pip \
   --no-index --find-links ./wheelhouse \
   --pip-wheel ./wheelhouse/pip-25.3-py3-none-any.whl
 ```
@@ -97,7 +97,7 @@ require `--dependencies-only` or `--project-wheel` for buildable root projects.
 uv workspace members use their workspace's shared lock and configuration.
 
 `-o` / `--output` is required. Its parent directory must already exist, and
-wheelport refuses to replace an existing output. Failed packing does not leave
+wheelpack refuses to replace an existing output. Failed packing does not leave
 a partial archive.
 
 ### Explicit Wheel-Only Targets
@@ -109,16 +109,16 @@ compilation or add Zig compilation.
 
 ```sh
 # Linux x86_64, glibc 2.17 baseline, with exact CPython patch compatibility.
-uv run wheelport pack requirements.txt -o linux-3127.zip \
+uv run wheelpack pack requirements.txt -o linux-3127.zip \
   --python-version 3.12.7 --python-platform x86_64-manylinux_2_17 --abi cp312
 
 # Windows ARM64 dependencies from an existing uv lock; omit the root project.
-uv run wheelport pack ./my-project -o windows-arm64.zip \
+uv run wheelpack pack ./my-project -o windows-arm64.zip \
   --manager uv --dependencies-only \
   --python-version 3.12 --python-platform aarch64-pc-windows-msvc
 
 # macOS ARM64 with an already built root project wheel.
-uv run wheelport pack ./my-project -o macos-arm64.zip \
+uv run wheelpack pack ./my-project -o macos-arm64.zip \
   --python-version 3.12.7 --python-platform aarch64-apple-darwin \
   --project-wheel ./wheelhouse/my_project-1.0-py3-none-any.whl
 ```
@@ -165,7 +165,7 @@ dependencies or optional dependencies are unsupported; provide wheels and static
 dependency metadata instead. No build backend is invoked. Markers are evaluated
 for the target, not the packing host. `platform_release` and `platform_version`
 markers are explicitly unsupported because target OS release/version overrides
-are not available; wheelport never substitutes host values for them.
+are not available; wheelpack never substitutes host values for them.
 
 ### Resolution and Locks
 
@@ -176,7 +176,7 @@ are not available; wheelport never substitutes host values for them.
   archive artifacts. pip's hash-checking requirements still apply to hashed
   inputs.
 - **Requirements files, explicit target:** uv resolves with target Python/platform
-  metadata and no builds. wheelport evaluates root and wheel-metadata markers
+  metadata and no builds. wheelpack evaluates root and wheel-metadata markers
   against the target and checks dependency closure. Incoming SHA-256 allowed
   hashes are enforced, not replaced by newly discovered hashes. Hashed inputs
   must pin an exact version or wheel URL; hash-checking mode requires incoming
@@ -186,7 +186,7 @@ are not available; wheelport never substitutes host values for them.
   resolution plan, including selected extras and groups. Native mode supports
   dynamic dependencies; explicit mode requires static dependency metadata.
   This route does not require a manager lock, and ignores uv-specific sources
-  and configuration during resolution. It uses wheelport's included uv module.
+  and configuration during resolution. It uses wheelpack's included uv module.
 - **uv projects:** `uv.lock` must exist and be fresh. `uv export --locked`
   checks freshness without implicitly updating the lock. Only explicitly
   selected extras/groups are included; default and dev groups are disabled.
@@ -196,17 +196,17 @@ are not available; wheelport never substitutes host values for them.
 - **Poetry projects:** `poetry.lock` must exist and pass `poetry check --lock`.
   The export plugin supplies the locked graph and hashes, with `main` plus any
   selected groups/extras. uv discovers artifacts for each exported dependency
-  without resolving its dependencies again; wheelport checks locked versions,
+  without resolving its dependencies again; wheelpack checks locked versions,
   filenames, hashes, and per-package repository sources. Explicit mode retains
   native source assignments while evaluating target markers, Python constraints,
   and wheel compatibility; source-only dependencies are rejected.
 
 Create or refresh native locks yourself with the relevant manager before
-packing. wheelport never silently runs a lock update. Extras and groups require
+packing. wheelpack never silently runs a lock update. Extras and groups require
 a project input. In native mode, local and editable dependencies are materialized
 as wheels, not installed editably on the destination.
 
-For unlocked Windows target resolution, wheelport uses an iterative wheel-metadata
+For unlocked Windows target resolution, wheelpack uses an iterative wheel-metadata
 loop to handle uv/Python machine-marker differences (`AMD64`, `ARM64`, `x86`).
 This does not provide full backtracking across parent package versions: conflicts
 or nonconvergence fail closed. A latest candidate with incompatible
@@ -374,8 +374,8 @@ The Python API accepts the same target configuration:
 ```python
 from pathlib import Path
 
-from wheelport.bundle import pack
-from wheelport.targets import Target
+from wheelpack.bundle import pack
+from wheelpack.targets import Target
 
 pack(
     Path("requirements.txt"),
@@ -396,7 +396,7 @@ transfer channel or separately authenticated archive digest/signature.
 
 pip reports and intermediate resolution locks are temporary, not ZIP contents.
 The intermediate resolution lock is written with mode `0600` and removed even
-on failure. wheelport-generated bundle metadata contains final local paths and
+on failure. wheelpack-generated bundle metadata contains final local paths and
 hashes, not signed source URLs or plaintext source authentication. Error output
 redacts URLs and known native environment credentials.
 
@@ -439,7 +439,7 @@ CPython **3.11, 3.12, 3.13, and 3.14**:
 The musl jobs use native Docker execution, not QEMU. The runner labels are
 GitHub-hosted public-runner choices; availability depends on GitHub and repository
 eligibility, not a promise of equivalent private runners. Native Windows ARM64
-is supported by both wheelport and the configured CI matrix.
+is supported by both wheelpack and the configured CI matrix.
 
 Each job runs the complete original test suite plus the added regression and
 integration tests, with no OS-wide filtering. This includes the **95 real CLI
@@ -459,7 +459,7 @@ contracts** in [test_ci_contracts.py](tests/test_ci_contracts.py):
 The full suite also tests real same-version package replacement with `--reuse`.
 Skips are narrow: POSIX permission semantics, native Windows drive-path cases,
 symlink capability when privileges are unavailable, and the optional legacy
-`WHEELPORT_TEST_BUNDLE` integration fixture. That fixture may be absent because
+`WHEELPACK_TEST_BUNDLE` integration fixture. That fixture may be absent because
 the CI contracts already exercise the standalone installer with generated bundles;
 an entire operating system is never skipped.
 
@@ -518,7 +518,7 @@ coverage; consult workflow runs and their uploaded reports for execution results
 mesh: **40 producers and 40 consumers** across the same Python versions and
 platforms, including native musl containers.
 
-Every producer builds wheelport's wheel, then packs its native ZIP and 32
+Every producer builds wheelpack's wheel, then packs its native ZIP and 32
 destination-specific ZIPs covering eight platform/architecture/libc targets and
 Python 3.11-3.14. These bundles include the real prebuilt `msgpack` 1.2.3 native
 extension; cross-compilation is not used.
@@ -529,7 +529,7 @@ pair: a native-bundle compatibility check and a targeted-bundle successful insta
 All archives must extract correctly and pass archive SHA-256/CRC and manifest
 checks. Compatible native bundles must install; incompatible ones must reject
 with the independently predicted error and without creating an environment.
-Targeted bundles must install and exercise wheelport's CLI and msgpack's compiled
+Targeted bundles must install and exercise wheelpack's CLI and msgpack's compiled
 extension with networking denied.
 
 Target-specific artifacts are downloaded selectively to avoid transferring every

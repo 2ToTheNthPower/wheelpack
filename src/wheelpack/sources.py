@@ -1,8 +1,8 @@
 """Shared plumbing for resolving native locks and explicit targets.
 
 Resolution -- turning requirements files, projects, and native locks into a
-pylock plan -- lives in :mod:`wheelport.pylock`; explicit-target resolution
-lives in :mod:`wheelport.targeted`. This module holds the low-level primitives
+pylock plan -- lives in :mod:`wheelpack.pylock`; explicit-target resolution
+lives in :mod:`wheelpack.targeted`. This module holds the low-level primitives
 they share: subprocess execution, URL/path handling, option assembly, credential
 discovery, and locked-artifact selection. It does not download or build wheels.
 """

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from helpers import build_wheel, digest, write_project
 
-from wheelport import pack as pack_module
+from wheelpack import pack as pack_module
 
 DIGEST = "a" * 64
 
@@ -180,8 +180,8 @@ def test_installer_is_standard_library_only(tmp_path):
     pack_module.pack(root, archive, manager="pip", find_links=[str(links)], no_index=True)
     bundle = extract(archive, tmp_path / "extracted")
     text = (bundle / "install.py").read_text(encoding="utf-8")
-    assert "import wheelport" not in text
-    assert "from wheelport" not in text
+    assert "import wheelpack" not in text
+    assert "from wheelpack" not in text
 
 
 def test_installer_verify_only(tmp_path):

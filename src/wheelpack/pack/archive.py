@@ -71,7 +71,7 @@ def pack(
         extras=list(extras),
         groups=list(groups),
     )
-    with tempfile.TemporaryDirectory(prefix="wheelport-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="wheelpack-") as temporary:
         root = Path(temporary) / "bundle"
         wheels_dir = root / "wheels"
         wheels_dir.mkdir(parents=True)
@@ -92,7 +92,7 @@ def pack(
         )
         manifest = {
             "format": 1,
-            "created_by": f"wheelport {__version__}",
+            "created_by": f"wheelpack {__version__}",
             "manager": resolution.manager,
             "source": source_manifest,
             "pylock": "pylock.toml",
@@ -147,7 +147,7 @@ def _requirements(entries: list[dict]) -> str:
 
 def _instructions(source_manifest) -> str:
     lines = [
-        "wheelport offline bundle",
+        "wheelpack offline bundle",
         "",
         "Contents:",
         "  source/          the project source code",
@@ -172,7 +172,7 @@ def _instructions(source_manifest) -> str:
         "  /path/to/new/venv/bin/python source/your_app.py",
         "",
         "Requires Python 3.11+ with the venv module (ensurepip). No network",
-        "access, wheelport, uv, or Poetry is required.",
+        "access, wheelpack, uv, or Poetry is required.",
         "",
         "Only install bundles from trusted sources: the hashes detect corruption,",
         "not malicious replacement of the entire archive.",
@@ -183,7 +183,7 @@ def _instructions(source_manifest) -> str:
 
 
 def _archive(root: Path, output: Path) -> None:
-    descriptor, staged = tempfile.mkstemp(prefix=".wheelport-", suffix=".zip", dir=output.parent)
+    descriptor, staged = tempfile.mkstemp(prefix=".wheelpack-", suffix=".zip", dir=output.parent)
     try:
         with (
             os.fdopen(descriptor, "wb") as stream,

@@ -1236,7 +1236,7 @@ wheels = [
 ]
 
 [[package]]
-name = "wheelport"
+name = "wheelpack"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

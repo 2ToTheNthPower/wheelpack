@@ -13,7 +13,7 @@ from helpers import SimpleIndex, build_wheel, digest, write_project
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
-from wheelport import pylock, sources
+from wheelpack import pylock, sources
 
 
 def resolve(target_input, *, manager="auto", indexes=(), find_links=(), no_index=False,

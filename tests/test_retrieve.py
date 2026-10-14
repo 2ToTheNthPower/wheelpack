@@ -9,8 +9,8 @@ from unittest import mock
 import pytest
 from helpers import build_wheel, digest
 
-from wheelport import retrieve, sources
-from wheelport.targets import Target
+from wheelpack import retrieve, sources
+from wheelpack.targets import Target
 
 DIGEST = "a" * 64
 

@@ -1,4 +1,4 @@
-"""Produce and consume wheelport ZIP bundles across machines in CI.
+"""Produce and consume wheelpack ZIP bundles across machines in CI.
 
 A producer packs a synthetic project into native and pure-Python bundles; a
 consumer on another machine extracts a bundle and runs the bundled installer.
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import ci
 
-from wheelport.pack import pack
+from wheelpack.pack import pack
 
 
 def _project(root: Path, dependencies: tuple[str, ...]) -> Path:
@@ -44,7 +44,7 @@ def produce(args) -> int:
     pure_dir = output / "pure"
     native_dir.mkdir(parents=True, exist_ok=True)
     pure_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="wheelport-transfer-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="wheelpack-transfer-") as temporary:
         work = Path(temporary)
         packaging = metadata.version("packaging")
         native = _project(work / "native", (f"msgpack=={args.msgpack}", f"packaging=={packaging}"))
@@ -103,7 +103,7 @@ def consume(args) -> int:
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     results = {}
-    with tempfile.TemporaryDirectory(prefix="wheelport-transfer-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="wheelpack-transfer-") as temporary:
         work = Path(temporary)
         results["native"] = _install(
             input_dir / "native" / f"{args.consumer}.zip",

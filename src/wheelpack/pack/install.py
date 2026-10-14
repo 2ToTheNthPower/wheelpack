@@ -1,11 +1,11 @@
-"""Standalone, standard-library-only installer for a wheelport bundle.
+"""Standalone, standard-library-only installer for a wheelpack bundle.
 
 Extract the bundle, then run:
 
     python install.py --venv /path/to/new/venv
 
 The destination needs Python 3.11+ with the venv module (ensurepip). No network
-access, wheelport, uv, or Poetry is required.
+access, wheelpack, uv, or Poetry is required.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def _load_manifest(root: Path) -> dict:
 def _verify(root: Path, manifest: dict) -> list[Path]:
     wheels = sorted((root / "wheels").glob("*.whl"))
     if not wheels:
-        raise SystemExit("wheelport: bundle contains no wheels")
+        raise SystemExit("wheelpack: bundle contains no wheels")
     expected = {entry["filename"]: entry["sha256"] for entry in manifest.get("wheels", [])}
     for wheel in wheels:
         recorded = expected.get(wheel.name)
@@ -40,7 +40,7 @@ def _verify(root: Path, manifest: dict) -> list[Path]:
             continue
         digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
         if recorded != digest:
-            raise SystemExit(f"wheelport: hash mismatch for {wheel.name}")
+            raise SystemExit(f"wheelpack: hash mismatch for {wheel.name}")
     return wheels
 
 
@@ -49,7 +49,7 @@ def _python(venv_dir: Path) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Install a wheelport offline bundle.")
+    parser = argparse.ArgumentParser(description="Install a wheelpack offline bundle.")
     parser.add_argument("--venv", type=Path, default=Path(".venv"), help="destination venv")
     parser.add_argument("--verify-only", action="store_true", help="check wheels and exit")
     parser.add_argument("--install-source", action="store_true", help="install source/ too")
@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     venv_dir = args.venv.resolve()
     if venv_dir.exists() and not args.reuse:
-        raise SystemExit(f"wheelport: destination exists: {venv_dir} (use --reuse)")
+        raise SystemExit(f"wheelpack: destination exists: {venv_dir} (use --reuse)")
     venv.EnvBuilder(with_pip=True, symlinks=os.name != "nt").create(venv_dir)
     python = _python(venv_dir)
     try:
@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
                 check=True,
             )
     except subprocess.CalledProcessError as error:
-        raise SystemExit(f"wheelport: installation failed (exit {error.returncode})") from None
+        raise SystemExit(f"wheelpack: installation failed (exit {error.returncode})") from None
     print(f"installed {len(wheels)} wheels into {venv_dir}")
     return 0
 

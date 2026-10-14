@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "wheelport"
+name = "wheelpack"
 version = "0.1.0"
 description = "Carry Python environments across the air gap as self-contained wheel bundles"
 readme = "README.md"

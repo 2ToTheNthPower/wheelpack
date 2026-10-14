@@ -327,7 +327,7 @@ def _compile(
     all explicitly evaluated requirements together also preserves version conflicts.
     Metadata comes exclusively from hashed prebuilt wheels, never a build backend.
     """
-    with tempfile.TemporaryDirectory(prefix="wheelport-metadata-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="wheelpack-metadata-") as temporary:
         transport = [
             value
             for position, arg in enumerate(args)
@@ -577,7 +577,7 @@ def collect(
                         pending.append(included)
             for group, values in dependency_groups.items():
                 static["dependency-groups"][group] = evaluated(values, group in selected_groups)
-            with tempfile.TemporaryDirectory(prefix="wheelport-project-") as temporary:
+            with tempfile.TemporaryDirectory(prefix="wheelpack-project-") as temporary:
                 path = Path(temporary) / "pyproject.toml"
                 path.write_text(
                     "\n".join(f'"{key}" = {pylock._toml_value(value)}' for key, value in static.items()),
@@ -614,7 +614,7 @@ def collect(
             credentials.extend(
                 value for value in candidates if urlsplit(value).username is not None
             )
-            with tempfile.TemporaryDirectory(prefix="wheelport-target-") as temporary:
+            with tempfile.TemporaryDirectory(prefix="wheelpack-target-") as temporary:
                 path = Path(temporary) / "requirements.txt"
                 path.write_text("\n".join(requirements) + "\n", encoding="utf-8")
                 constraint = Path(temporary) / "constraints.txt"
@@ -700,7 +700,7 @@ def collect(
             args += ["--extras", extra]
         exported = run(args)
         repositories = tool.get("poetry", {}).get("source", [])
-        plan = {"lock-version": "1.0", "created-by": "wheelport", "packages": []}
+        plan = {"lock-version": "1.0", "created-by": "wheelpack", "packages": []}
         for line, requirement in pylock._exports(exported, extras, target=target):
             body = re.sub(r"\s+--hash(?:=|\s+)\S+", "", line).strip()
             requirement = _requirement(body, cwd, target, extras)
@@ -729,7 +729,7 @@ def collect(
                 raise ValueError(f"Missing exported lock hashes for {requirement.name}")
             _restriction(requirement, hashes, restrictions)
             requirement.marker = None
-            with tempfile.TemporaryDirectory(prefix="wheelport-poetry-") as temporary:
+            with tempfile.TemporaryDirectory(prefix="wheelpack-poetry-") as temporary:
                 path = Path(temporary) / "requirements.txt"
                 path.write_text(str(requirement) + "\n", encoding="utf-8")
                 discovered = pylock._pylock(
@@ -833,7 +833,7 @@ def collect(
                 url = s._pip_auth(url, [registry, *credentials])
             downloads.append((f"{name} @ {url} --hash={digest}", scoped))
         for requirement, scoped in downloads:
-            with tempfile.TemporaryDirectory(prefix="wheelport-download-") as temporary:
+            with tempfile.TemporaryDirectory(prefix="wheelpack-download-") as temporary:
                 path = Path(temporary) / "requirements.txt"
                 path.write_text(requirement + "\n", encoding="utf-8")
                 run(

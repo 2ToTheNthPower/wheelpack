@@ -4,7 +4,7 @@ This module owns dependency *resolution*: turning a requirements file, a PEP 621
 project, a ``uv.lock``, or a ``poetry.lock`` into a normalized, host-filtered
 PEP 751 plan. It never downloads, builds, or installs a wheel. The shared
 plumbing (subprocess execution, URL/path handling, option assembly) lives in
-:mod:`wheelport.sources`.
+:mod:`wheelpack.sources`.
 """
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ def _pip_report(report: dict) -> dict:
         or not isinstance(report.get("install"), list)
     ):
         raise ValueError("pip did not produce a valid installation report version 1")
-    plan = {"lock-version": "1.0", "created-by": "wheelport (pip)", "packages": []}
+    plan = {"lock-version": "1.0", "created-by": "wheelpack (pip)", "packages": []}
     for entry in report["install"]:
         metadata = entry.get("metadata", {})
         if not metadata.get("name") or not metadata.get("version"):
@@ -315,7 +315,7 @@ def resolve(
 
     The returned :class:`Resolution` carries the plan plus the source options,
     lock data, and per-package scopes that retrieval needs. No artifact is
-    fetched or built here; that is exclusively :mod:`wheelport.sources`'s job.
+    fetched or built here; that is exclusively :mod:`wheelpack.sources`'s job.
     """
     input = source.input
     manager = source.manager
@@ -339,7 +339,7 @@ def resolve(
         if not is_project and (extras or groups):
             raise ValueError("Extras and groups require a project input")
         if not is_project:
-            with tempfile.TemporaryDirectory(prefix="wheelport-pip-") as temporary:
+            with tempfile.TemporaryDirectory(prefix="wheelpack-pip-") as temporary:
                 report = Path(temporary) / "report.json"
                 s._run(
                     [
@@ -438,7 +438,7 @@ def resolve(
             args += ["--extras", extra]
         exported = s._run(args, cwd)
         repositories = tool.get("poetry", {}).get("source", [])
-        plan = {"lock-version": "1.0", "created-by": "wheelport", "packages": []}
+        plan = {"lock-version": "1.0", "created-by": "wheelpack", "packages": []}
         for line, requirement in _exports(exported, extras):
             package = _package(lock, requirement) if requirement and not requirement.url else None
             package_source = package.get("source", {}) if package else {}
@@ -462,7 +462,7 @@ def resolve(
             if package and "--hash" not in line:
                 raise ValueError(f"Missing exported lock hashes for {requirement.name}")
             # Discover artifacts, never resolve the native dependency graph again.
-            with tempfile.TemporaryDirectory(prefix="wheelport-poetry-") as temporary:
+            with tempfile.TemporaryDirectory(prefix="wheelpack-poetry-") as temporary:
                 requirements = Path(temporary) / "requirements.txt"
                 requirements.write_text(line + "\n", encoding="utf-8")
                 discovered = _pylock(

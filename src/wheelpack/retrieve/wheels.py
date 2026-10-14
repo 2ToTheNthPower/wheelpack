@@ -28,7 +28,7 @@ def retrieve(
     """Download or build every package in ``lock`` into ``destination``.
 
     ``lock`` is a pylock.toml path or an already-parsed plan. ``target`` is an
-    optional :class:`wheelport.targets.Target` used to pick the matching wheel
+    optional :class:`wheelpack.targets.Target` used to pick the matching wheel
     for a foreign machine/architecture. Returns the wheel paths in
     ``destination``.
     """
@@ -81,7 +81,7 @@ def _retrieve_package(package, destination, options, credential_urls, interprete
 
 
 def _wheel(interpreter, reference, destination, options, *, hashed: bool) -> None:
-    with tempfile.TemporaryDirectory(prefix="wheelport-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="wheelpack-") as temporary:
         requirements = Path(temporary) / "requirements.txt"
         requirements.write_text(reference + "\n", encoding="utf-8")
         args = [interpreter, "-m", "pip", "wheel", "--wheel-dir", str(destination), "--no-deps"]

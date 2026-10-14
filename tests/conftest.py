@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for wheelport resolution tests."""
+"""Shared pytest fixtures for wheelpack resolution tests."""
 
 from __future__ import annotations
 
