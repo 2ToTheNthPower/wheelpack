@@ -12,12 +12,36 @@ pack(
     manager="auto",          # "pip" | "uv" | "poetry" | "auto"
     indexes=[], find_links=[], no_index=False,
     extras=[], groups=[],
+    target=None,             # a wheelpack.targets.Target, for a foreign machine
     python=None,             # interpreter used for retrieval
     include_source=True,     # copy the project source into source/
 )
 ```
 
 The output path must not exist, and its parent directory must exist.
+
+## Cross-packing for another machine
+
+Pass a `Target` to build a bundle for a different machine, architecture, and
+Python version than the packing host — for example a Windows bundle from Linux:
+
+```python
+from wheelpack.targets import Target
+
+target = Target.create(
+    python_version="3.12",
+    python_platform="x86_64-pc-windows-msvc",
+    abi="cp312",
+)
+pack("my-project", "windows.zip", target=target)
+```
+
+The bundle then contains the target's wheels (selected by wheel tags), records
+the target in `manifest.json`, and filters platform-conditional dependencies for
+the target. Foreign wheels are downloaded, never compiled; the project source is
+copied but not built, so the destination builds or installs it (or supply a
+prebuilt wheel). Only pure-Python and prebuilt wheels can be cross-packed.
+
 
 ## Bundle layout
 

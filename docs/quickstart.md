@@ -69,7 +69,18 @@ required on the destination.
 ## Foreign targets
 
 `wheelpack.targets.Target` describes a destination machine, architecture, and
-Python version, and `wheelpack.targeted.collect` resolves wheel-only plans for
-it. See [Resolution](resolution.md#explicit-targets).
+Python version. `pack` accepts one to cross-pack a bundle, and
+`wheelpack.targeted.collect` resolves wheel-only plans for it:
+
+```python
+from wheelpack.targets import Target
+
+target = Target.create(
+    python_version="3.12", python_platform="x86_64-pc-windows-msvc", abi="cp312"
+)
+pack("my-project", "windows.zip", target=target)   # a Windows bundle from Linux
+```
+
+See [Resolution](resolution.md#explicit-targets) and [Packing](packing.md#cross-packing-for-another-machine).
 
 Next: [Resolution](resolution.md) · [Retrieval](retrieval.md) · [Packing](packing.md)

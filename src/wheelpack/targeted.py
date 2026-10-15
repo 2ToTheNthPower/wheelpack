@@ -453,6 +453,7 @@ def collect(
     include_project: bool,
     project: dict,
     uv_root: Path,
+    lock_out: Path | None = None,
 ) -> str:
     extras = [canonicalize_name(extra) for extra in extras]
     groups = [canonicalize_name(group) for group in groups]
@@ -801,6 +802,12 @@ def collect(
             s._artifact(package, plan_cwd, tags=target.tags(), wheel_only=True)
         pylock._write_plan(plan, resolution, plan_cwd)
         created = True
+        if lock_out is not None:
+            # Hand the resolved target plan to a caller (for example pack) before
+            # the ephemeral copy is deleted.
+            descriptor = os.open(lock_out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(resolution.read_bytes())
         downloads = []
         for package in _selected(s._toml(resolution), target, extras, groups):
             name = canonicalize_name(package["name"])

@@ -12,6 +12,7 @@ import pytest
 from helpers import build_wheel, digest, write_project
 
 from wheelpack import pack as pack_module
+from wheelpack.targets import Target
 
 DIGEST = "a" * 64
 
@@ -97,6 +98,7 @@ def test_pack_manifest_records_wheels_source_and_manager(tmp_path):
         manifest = json.loads(zipped.read("manifest.json"))
     assert manifest["format"] == 1
     assert manifest["manager"] == "pip"
+    assert manifest["target"] is None
     assert manifest["source"]["kind"] == "project"
     assert manifest["wheels"] == [
         {
@@ -106,6 +108,78 @@ def test_pack_manifest_records_wheels_source_and_manager(tmp_path):
             "sha256": digest(wheel),
         }
     ]
+
+
+def test_pack_target_records_target_and_matching_wheel(tmp_path):
+    links = tmp_path / "links"
+    build_wheel(links, "demo", tag="cp312-cp312-win_amd64", purelib=False)
+    build_wheel(links, "demo", tag="cp312-cp312-manylinux_2_17_x86_64", purelib=False)
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text(
+        f"--no-index\n--find-links {links.as_uri()}\ndemo==1\n", encoding="utf-8"
+    )
+    target = Target.create(
+        python_version="3.12", python_platform="x86_64-pc-windows-msvc", abi="cp312"
+    )
+    archive = tmp_path / "bundle.zip"
+    pack_module.pack(
+        requirements, archive, manager="pip", find_links=[str(links)], no_index=True, target=target
+    )
+    with zipfile.ZipFile(archive) as zipped:
+        manifest = json.loads(zipped.read("manifest.json"))
+        names = zipped.namelist()
+    assert manifest["target"]["mode"] == "explicit"
+    assert manifest["target"]["python_platform"] == "x86_64-pc-windows-msvc"
+    assert manifest["target"]["abi"] == "cp312"
+    assert [entry["filename"] for entry in manifest["wheels"]] == [
+        "demo-1-cp312-cp312-win_amd64.whl"
+    ]
+    assert "wheels/demo-1-cp312-cp312-win_amd64.whl" in names
+    assert not any("manylinux" in name for name in names)
+    assert "pylock.toml" in names
+
+
+def test_pack_target_from_project_input(tmp_path):
+    root = write_project(tmp_path)
+    links = tmp_path / "links"
+    build_wheel(links, "demo")
+    target = Target.create(
+        python_version="3.12", python_platform="aarch64-apple-darwin", abi="cp312"
+    )
+    archive = tmp_path / "bundle.zip"
+    pack_module.pack(
+        root, archive, manager="pip", find_links=[str(links)], no_index=True, target=target
+    )
+    with zipfile.ZipFile(archive) as zipped:
+        manifest = json.loads(zipped.read("manifest.json"))
+        assert "source/pyproject.toml" in zipped.namelist()
+    assert manifest["target"]["python_platform"] == "aarch64-apple-darwin"
+    assert [entry["name"] for entry in manifest["wheels"]] == ["demo"]
+
+
+def test_pack_target_filters_platform_conditional_dependencies(tmp_path):
+    links = tmp_path / "links"
+    build_wheel(
+        links,
+        "demo",
+        requires=("winonly; sys_platform == 'win32'", "nixonly; sys_platform == 'linux'"),
+    )
+    build_wheel(links, "winonly")
+    build_wheel(links, "nixonly")
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text(
+        f"--no-index\n--find-links {links.as_uri()}\ndemo==1\n", encoding="utf-8"
+    )
+    target = Target.create(
+        python_version="3.12", python_platform="x86_64-pc-windows-msvc", abi="cp312"
+    )
+    archive = tmp_path / "bundle.zip"
+    pack_module.pack(
+        requirements, archive, manager="pip", find_links=[str(links)], no_index=True, target=target
+    )
+    with zipfile.ZipFile(archive) as zipped:
+        manifest = json.loads(zipped.read("manifest.json"))
+    assert {entry["name"] for entry in manifest["wheels"]} == {"demo", "winonly"}
 
 
 def test_pack_requirements_file_lists_local_wheels_with_hashes(tmp_path):

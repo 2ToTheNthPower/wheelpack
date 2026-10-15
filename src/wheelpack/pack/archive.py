@@ -48,6 +48,7 @@ def pack(
     no_index: bool = False,
     extras=(),
     groups=(),
+    target=None,
     python: str | None = None,
     include_source: bool = True,
 ) -> Path:
@@ -55,7 +56,10 @@ def pack(
 
     The archive contains the project source, every dependency wheel, the pylock
     it was retrieved from, a hashed requirements file, a standalone installer,
-    a manifest, and usage instructions. Returns the output path.
+    a manifest, and usage instructions. Pass ``target`` (a
+    :class:`wheelpack.targets.Target`) to pack for a foreign machine,
+    architecture, and Python version instead of the packing host. Returns the
+    output path.
     """
     output = Path(output).absolute()
     if output.exists() or output.is_symlink():
@@ -63,29 +67,50 @@ def pack(
     if not output.parent.is_dir():
         raise PackError(f"Output parent directory does not exist: {output.parent}")
     source = pylock.detect(input, manager)
-    resolution = pylock.resolve(
-        source,
-        indexes=list(indexes),
-        find_links=list(find_links),
-        no_index=no_index,
-        extras=list(extras),
-        groups=list(groups),
-    )
     with tempfile.TemporaryDirectory(prefix="wheelpack-") as temporary:
         root = Path(temporary) / "bundle"
         wheels_dir = root / "wheels"
         wheels_dir.mkdir(parents=True)
         pylock_path = root / "pylock.toml"
-        resolution.plan["packages"] = pylock.select(resolution.plan, extras, groups)
-        pylock.write_plan(resolution.plan, pylock_path, resolution.plan_cwd)
-        wheel_paths = retrieve(
-            pylock_path,
-            wheels_dir,
-            indexes=indexes,
-            find_links=find_links,
-            no_index=no_index,
-            python=python,
-        )
+        if target is not None:
+            from .. import targeted
+
+            effective = targeted.collect(
+                source.input,
+                source.manager,
+                wheels_dir,
+                target=target,
+                indexes=list(indexes),
+                find_links=list(find_links),
+                no_index=no_index,
+                extras=list(extras),
+                groups=list(groups),
+                include_project=False,
+                project=source.project,
+                uv_root=source.uv_root,
+                lock_out=pylock_path,
+            )
+            wheel_paths = sorted(wheels_dir.glob("*.whl"))
+        else:
+            resolution = pylock.resolve(
+                source,
+                indexes=list(indexes),
+                find_links=list(find_links),
+                no_index=no_index,
+                extras=list(extras),
+                groups=list(groups),
+            )
+            effective = resolution.manager
+            resolution.plan["packages"] = pylock.select(resolution.plan, extras, groups)
+            pylock.write_plan(resolution.plan, pylock_path, resolution.plan_cwd)
+            wheel_paths = retrieve(
+                pylock_path,
+                wheels_dir,
+                indexes=indexes,
+                find_links=find_links,
+                no_index=no_index,
+                python=python,
+            )
         source_manifest = _copy_source(source, root / "source", output, include_source)
         entries = [_wheel_entry(path) for path in wheel_paths]
         (root / "requirements.txt").write_text(
@@ -94,7 +119,8 @@ def pack(
         manifest = {
             "format": 1,
             "created_by": f"wheelpack {__version__}",
-            "manager": resolution.manager,
+            "manager": effective,
+            "target": target.manifest() if target else None,
             "source": source_manifest,
             "pylock": "pylock.toml",
             "wheels": entries,
