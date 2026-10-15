@@ -21,7 +21,7 @@ input ──► wheelpack.pylock ──► pylock.toml ──► wheelpack.retri
 | `wheelpack.targets` | Immutable `Target` descriptions and wheel-tag/marker computation. |
 | `wheelpack.targeted` | Explicit-target, wheel-only resolution and retrieval. |
 | `wheelpack.libc` | Native libc detection for target inference. |
-| `wheelpack.cli` | The `wheelpack` command line (`resolve`, `retrieve`, `pack`). |
+| `wheelpack.cli` | The single `wheelpack` command that runs all three stages. |
 | `wheelpack._compat` | `tomllib`/`tomli` and `hashlib.file_digest` shims for Python 3.10. |
 
 `pylock`, `retrieve`, and `pack` all build on the primitives in `sources`, so

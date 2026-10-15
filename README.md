@@ -27,14 +27,12 @@ Requires Python 3.10+ and a [uv](https://docs.astral.sh/uv/) install for resolut
 
 ## Quick start
 
-```sh
-wheelpack resolve ./my-project -o pylock.toml   # requirements, pyproject, uv.lock, or poetry.lock
-wheelpack retrieve pylock.toml -o wheelhouse/   # download or build the wheels
-wheelpack pack ./my-project -o bundle.zip       # source + wheels + installer in one ZIP
+One command resolves, retrieves, and packs:
 
-# cross-pack a Windows bundle from Linux
-wheelpack pack ./my-project -o windows.zip \
-  --python-version 3.12 --python-platform x86_64-pc-windows-msvc --abi cp312
+```sh
+wheelpack ./my-project -o bundle.zip   # resolve + retrieve + pack in one step
+wheelpack .                            # writes ./<project>.zip
+wheelpack . --python-version 3.12 --python-platform x86_64-pc-windows-msvc --abi cp312
 ```
 
 On the offline machine, extract the ZIP and run:

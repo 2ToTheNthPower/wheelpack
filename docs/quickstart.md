@@ -14,20 +14,22 @@ depending on the input; those are declared runtime dependencies.
 
 ## Command line
 
-```sh
-wheelpack resolve ./my-project -o pylock.toml
-wheelpack retrieve pylock.toml -o wheelhouse/
-wheelpack pack ./my-project -o bundle.zip
+One command resolves, retrieves, and packs:
 
-# cross-pack a Windows bundle from Linux
-wheelpack pack ./my-project -o windows.zip \
-  --python-version 3.12 --python-platform x86_64-pc-windows-msvc --abi cp312
+```sh
+wheelpack ./my-project -o bundle.zip   # resolve + retrieve + pack in one step
+wheelpack .                            # writes ./<project>.zip
+wheelpack . --python-version 3.12 --python-platform x86_64-pc-windows-msvc --abi cp312
 ```
 
-Run `wheelpack --help` or `wheelpack <command> --help` for every option, or
-`python -m wheelpack` when the console script is not on `PATH`.
+Useful options: `--manager auto|pip|uv|poetry`, `--index-url` (repeatable),
+`--find-links` (repeatable), `--no-index`, `--extra`, `--group`, `--no-source`,
+`--force`. Run `wheelpack --help` for everything, or `python -m wheelpack` when
+the console script is not on `PATH`.
 
 ## Library
+
+The three stages are also available separately for advanced use.
 
 ## Resolve an input to a pylock plan
 

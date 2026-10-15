@@ -1,4 +1,4 @@
-"""The command-line interface: resolve, retrieve, and pack."""
+"""The single-command CLI: resolve, retrieve, and pack in one step."""
 
 from __future__ import annotations
 
@@ -24,59 +24,37 @@ def test_version_via_module():
     assert result.stdout.startswith("wheelpack ")
 
 
-def test_resolve_writes_pylock(tmp_path, capsys):
-    root = write_project(tmp_path)
-    links = tmp_path / "links"
-    build_wheel(links, "demo")
-    output = tmp_path / "pylock.toml"
-    code = cli.main(
-        ["resolve", str(root), "-o", str(output), "--manager", "pip",
-         "--find-links", str(links), "--no-index"]
-    )
-    assert code == 0
-    assert output.is_file()
-    assert "1 packages" in capsys.readouterr().out
-
-
-def test_resolve_reports_errors(tmp_path, capsys):
-    requirements = tmp_path / "requirements.txt"
-    requirements.write_text("demo\n", encoding="utf-8")
-    code = cli.main(["resolve", str(requirements), "--manager", "pip", "--extra", "x"])
-    assert code == 1
-    assert "wheelpack:" in capsys.readouterr().err
-
-
-def test_retrieve_downloads_wheels(tmp_path):
-    root = write_project(tmp_path)
-    links = tmp_path / "links"
-    wheel = build_wheel(links, "demo")
-    pylock = tmp_path / "pylock.toml"
-    assert cli.main(
-        ["resolve", str(root), "-o", str(pylock), "--manager", "pip",
-         "--find-links", str(links), "--no-index"]
-    ) == 0
-    wheelhouse = tmp_path / "wheelhouse"
-    assert cli.main(["retrieve", str(pylock), "-o", str(wheelhouse)]) == 0
-    assert (wheelhouse / wheel.name).is_file()
-
-
-def test_pack_writes_bundle(tmp_path):
+def test_single_command_packs_a_bundle(tmp_path):
     root = write_project(tmp_path)
     links = tmp_path / "links"
     build_wheel(links, "demo")
     archive = tmp_path / "bundle.zip"
     code = cli.main(
-        ["pack", str(root), "-o", str(archive), "--manager", "pip",
+        [str(root), "-o", str(archive), "--manager", "pip",
          "--find-links", str(links), "--no-index"]
     )
     assert code == 0
     with zipfile.ZipFile(archive) as zipped:
         manifest = json.loads(zipped.read("manifest.json"))
-    assert manifest["target"] is None
-    assert manifest["wheels"][0]["name"] == "demo"
+        assert "source/pyproject.toml" in zipped.namelist()
+    assert manifest["manager"] == "pip"
+    assert [entry["name"] for entry in manifest["wheels"]] == ["demo"]
 
 
-def test_pack_target_command(tmp_path):
+def test_default_output_is_derived_from_input(tmp_path, monkeypatch, capsys):
+    write_project(tmp_path)
+    links = tmp_path / "links"
+    build_wheel(links, "demo")
+    monkeypatch.chdir(tmp_path)
+    code = cli.main(
+        ["project", "--manager", "pip", "--find-links", str(links), "--no-index"]
+    )
+    assert code == 0
+    assert (tmp_path / "project.zip").is_file()
+    assert "project.zip" in capsys.readouterr().out
+
+
+def test_target_flags_cross_pack(tmp_path):
     links = tmp_path / "links"
     build_wheel(links, "demo", tag="cp312-cp312-win_amd64", purelib=False)
     build_wheel(links, "demo", tag="cp312-cp312-manylinux_2_17_x86_64", purelib=False)
@@ -86,7 +64,7 @@ def test_pack_target_command(tmp_path):
     )
     archive = tmp_path / "bundle.zip"
     code = cli.main(
-        ["pack", str(requirements), "-o", str(archive), "--manager", "pip",
+        [str(requirements), "-o", str(archive), "--manager", "pip",
          "--find-links", str(links), "--no-index",
          "--python-version", "3.12", "--python-platform", "x86_64-pc-windows-msvc",
          "--abi", "cp312"]
@@ -98,12 +76,26 @@ def test_pack_target_command(tmp_path):
     assert manifest["wheels"][0]["filename"] == "demo-1-cp312-cp312-win_amd64.whl"
 
 
-def test_retrieve_missing_pylock(tmp_path, capsys):
-    code = cli.main(["retrieve", str(tmp_path / "absent.toml"), "-o", str(tmp_path / "wh")])
+def test_force_replaces_an_existing_output(tmp_path):
+    root = write_project(tmp_path)
+    links = tmp_path / "links"
+    build_wheel(links, "demo")
+    archive = tmp_path / "bundle.zip"
+    arguments = [
+        str(root), "-o", str(archive), "--manager", "pip",
+        "--find-links", str(links), "--no-index",
+    ]
+    assert cli.main(arguments) == 0
+    assert cli.main(arguments) == 1  # refuses to overwrite
+    assert cli.main([*arguments, "--force"]) == 0
+
+
+def test_errors_return_one(tmp_path, capsys):
+    code = cli.main([str(tmp_path / "missing"), "-o", str(tmp_path / "bundle.zip")])
     assert code == 1
     assert "wheelpack:" in capsys.readouterr().err
 
 
 def test_unknown_manager_exits():
     with pytest.raises(SystemExit):
-        cli.main(["resolve", "x", "--manager", "conda"])
+        cli.main(["project", "--manager", "conda"])
