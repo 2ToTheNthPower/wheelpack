@@ -36,6 +36,10 @@ jobs:
           - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
           - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl}
           - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl}
+        # uv publishes no managed CPython 3.10 for Windows ARM64.
+        exclude:
+          - platform: {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
+            python: '3.10'
     env:
       UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
       UV_PYTHON_PREFERENCE: only-managed
@@ -119,6 +123,10 @@ jobs:
           - {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
           - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: musl}
           - {runner: ubuntu-24.04-arm, os: linux, arch: aarch64, libc: musl}
+        # uv publishes no managed CPython 3.10 for Windows ARM64.
+        exclude:
+          - platform: {runner: windows-11-arm, os: windows, arch: aarch64, libc: none}
+            python: '3.10'
     env:
       UV_PYTHON: cpython-${{ matrix.python }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-${{ matrix.platform.libc }}
       UV_PYTHON_PREFERENCE: only-managed
