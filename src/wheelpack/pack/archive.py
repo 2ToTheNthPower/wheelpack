@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -13,6 +12,7 @@ from pathlib import Path
 from packaging.utils import parse_wheel_filename
 
 from .. import __version__, pylock
+from .._compat import file_digest
 from ..retrieve import retrieve
 
 _SOURCE_EXCLUDES = {
@@ -76,7 +76,8 @@ def pack(
         wheels_dir = root / "wheels"
         wheels_dir.mkdir(parents=True)
         pylock_path = root / "pylock.toml"
-        pylock._write_plan(resolution.plan, pylock_path, resolution.plan_cwd)
+        resolution.plan["packages"] = pylock.select(resolution.plan, extras, groups)
+        pylock.write_plan(resolution.plan, pylock_path, resolution.plan_cwd)
         wheel_paths = retrieve(
             pylock_path,
             wheels_dir,
@@ -134,7 +135,7 @@ def _copy_source(source, destination: Path, output: Path, include: bool):
 def _wheel_entry(path: Path) -> dict:
     name, version, _, _ = parse_wheel_filename(path.name)
     with path.open("rb") as stream:
-        sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
+        sha256 = file_digest(stream, "sha256").hexdigest()
     return {"filename": path.name, "name": name, "version": str(version), "sha256": sha256}
 
 
@@ -171,7 +172,7 @@ def _instructions(source_manifest) -> str:
         "Run the bundled source with the environment, for example:",
         "  /path/to/new/venv/bin/python source/your_app.py",
         "",
-        "Requires Python 3.11+ with the venv module (ensurepip). No network",
+        "Requires Python 3.10+ with the venv module (ensurepip). No network",
         "access, wheelpack, uv, or Poetry is required.",
         "",
         "Only install bundles from trusted sources: the hashes detect corruption,",

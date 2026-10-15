@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
+
+from .._compat import tomllib
 
 LOCK_VERSION = "1.0"
 

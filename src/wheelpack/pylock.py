@@ -9,13 +9,11 @@ plumbing (subprocess execution, URL/path handling, option assembly) lives in
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import sys
 import tempfile
-import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +26,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from . import sources as s
+from ._compat import file_digest, tomllib
 from .targets import Target
 
 
@@ -58,7 +57,7 @@ def _write_plan(plan: dict, path: Path, cwd: Path) -> None:
                 )
                 if local and not source.get("hashes", {}).get("sha256"):
                     with local.open("rb") as stream:
-                        source.setdefault("hashes", {})["sha256"] = hashlib.file_digest(
+                        source.setdefault("hashes", {})["sha256"] = file_digest(
                             stream, "sha256"
                         ).hexdigest()
         if "directory" in package:
@@ -80,6 +79,11 @@ def _write_plan(plan: dict, path: Path, cwd: Path) -> None:
     except BaseException:
         path.unlink(missing_ok=True)
         raise
+
+
+def write_plan(plan: dict, path: Path, cwd: Path) -> None:
+    """Write ``plan`` as a PEP 751 ``pylock.toml`` (mode 0600, never overwritten)."""
+    _write_plan(plan, path, cwd)
 
 
 def _pylock(text: str) -> dict:
@@ -239,6 +243,11 @@ def _selected(plan: dict, extras: list[str], groups: list[str]) -> list[dict]:
             raise ValueError(f"Locked package {name} requires a different Python version")
         selected[name] = package
     return list(selected.values())
+
+
+def select(plan: dict, extras=(), groups=()) -> list[dict]:
+    """Return the packages in ``plan`` that apply to the running host."""
+    return _selected(plan, list(extras), list(groups))
 
 
 @dataclass(frozen=True, slots=True)

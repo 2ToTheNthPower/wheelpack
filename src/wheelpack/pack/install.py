@@ -4,7 +4,7 @@ Extract the bundle, then run:
 
     python install.py --venv /path/to/new/venv
 
-The destination needs Python 3.11+ with the venv module (ensurepip). No network
+The destination needs Python 3.10+ with the venv module (ensurepip). No network
 access, wheelpack, uv, or Poetry is required.
 """
 

@@ -162,13 +162,13 @@ def test_uv_project_flat_dir_packages_and_python(tmp_path):
     resolution = resolve(root, manager="uv", no_index=True, find_links=[str(root / "links")])
     assert resolution.manager == "uv"
     assert names(resolution.plan) == {"demo"}
-    assert resolution.plan["requires-python"] == ">=3.11"
+    assert resolution.plan["requires-python"] == ">=3.10"
 
 
 def test_uv_project_preserves_requires_python_range(tmp_path):
     # Keep the range compatible with the running interpreter so `uv lock` resolves.
     upper = f"{sys.version_info.major}.{sys.version_info.minor + 1}"
-    requires = f">=3.11,<{upper}"
+    requires = f">=3.10,<{upper}"
     root = write_project(tmp_path, requires_python=requires)
     links = root / "links"
     build_wheel(links, "demo")
@@ -176,7 +176,7 @@ def test_uv_project_preserves_requires_python_range(tmp_path):
         stream.write('[tool.uv]\nno-index = true\nfind-links = ["links"]\n')
     uv_lock(root)
     resolution = resolve(root, manager="uv", no_index=True, find_links=[str(links)])
-    # uv may normalize the range (for example `>=3.11,<3.12` to `==3.11.*`), so
+    # uv may normalize the range (for example `>=3.10,<3.11` to `==3.10.*`), so
     # assert the bound is preserved rather than the literal spelling.
     resolved = SpecifierSet(resolution.plan["requires-python"])
     assert resolved.contains(host_version())
@@ -271,7 +271,7 @@ def test_uv_workspace_member_uses_shared_lock(tmp_path):
         build_wheel(links, name)
     (root / "pyproject.toml").write_text(
         '[project]\nname = "workspace-root"\nversion = "1"\n'
-        'requires-python = ">=3.11"\ndependencies = ["rootdep"]\n'
+        'requires-python = ">=3.10"\ndependencies = ["rootdep"]\n'
         '[tool.uv]\nno-index = true\nfind-links = ["links"]\n'
         '[tool.uv.workspace]\nmembers = ["packages/*"]\n'
         "[tool.uv.sources]\nsibling = { workspace = true }\n",
@@ -281,20 +281,20 @@ def test_uv_workspace_member_uses_shared_lock(tmp_path):
     member.mkdir(parents=True)
     (member / "pyproject.toml").write_text(
         '[project]\nname = "member"\nversion = "1"\n'
-        'requires-python = ">=3.11"\ndependencies = ["demo", "sibling"]\n',
+        'requires-python = ">=3.10"\ndependencies = ["demo", "sibling"]\n',
         encoding="utf-8",
     )
     sibling = root / "packages" / "sibling"
     sibling.mkdir()
     (sibling / "pyproject.toml").write_text(
-        '[project]\nname = "sibling"\nversion = "1"\nrequires-python = ">=3.11"\n',
+        '[project]\nname = "sibling"\nversion = "1"\nrequires-python = ">=3.10"\n',
         encoding="utf-8",
     )
     unrelated = root / "packages" / "unrelated"
     unrelated.mkdir()
     (unrelated / "pyproject.toml").write_text(
         '[project]\nname = "unrelated"\nversion = "1"\n'
-        'requires-python = ">=3.11"\ndependencies = ["unrelateddep"]\n',
+        'requires-python = ">=3.10"\ndependencies = ["unrelateddep"]\n',
         encoding="utf-8",
     )
     uv_lock(root)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tomllib
 from unittest import mock
 
 import pytest
@@ -14,6 +13,7 @@ from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 from wheelpack import pylock, sources
+from wheelpack._compat import tomllib
 
 DIGEST = "a" * 64
 

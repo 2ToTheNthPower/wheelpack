@@ -16,7 +16,7 @@ def build_wheel(
     *,
     tag: str = "py3-none-any",
     requires: tuple[str, ...] = (),
-    requires_python: str | None = ">=3.11",
+    requires_python: str | None = ">=3.10",
     purelib: bool = True,
 ) -> Path:
     """Create a minimal but structurally valid wheel that resolution can read."""
@@ -50,7 +50,7 @@ def write_project(
     *,
     name: str = "root",
     dependencies: tuple[str, ...] = ("demo",),
-    requires_python: str = ">=3.11",
+    requires_python: str = ">=3.10",
     extra: str = "",
 ) -> Path:
     """Write a PEP 621 project and return its directory."""

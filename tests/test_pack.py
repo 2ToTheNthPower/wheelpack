@@ -57,7 +57,7 @@ def make_source_project(root: Path, name="app", dependencies=()):
     rendered = ", ".join(f'"{dependency}"' for dependency in dependencies)
     (root / "pyproject.toml").write_text(
         '[build-system]\nrequires = []\nbuild-backend = "builder"\nbackend-path = ["."]\n'
-        f'[project]\nname = "{name}"\nversion = "1"\nrequires-python = ">=3.11"\n'
+        f'[project]\nname = "{name}"\nversion = "1"\nrequires-python = ">=3.10"\n'
         f"dependencies = [{rendered}]\n",
         encoding="utf-8",
     )

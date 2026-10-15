@@ -27,7 +27,7 @@ def _project(root: Path, dependencies: tuple[str, ...]) -> Path:
     rendered = ", ".join(f'"{dependency}"' for dependency in dependencies)
     (root / "pyproject.toml").write_text(
         '[project]\nname = "transfer-sample"\nversion = "1"\n'
-        f'requires-python = ">=3.11"\ndependencies = [{rendered}]\n',
+        f'requires-python = ">=3.10"\ndependencies = [{rendered}]\n',
         encoding="utf-8",
     )
     return root

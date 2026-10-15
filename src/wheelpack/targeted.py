@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import copy
-import hashlib
 import os
 import re
 import sys
@@ -22,6 +21,7 @@ from packaging.version import Version
 
 from . import pylock
 from . import sources as s
+from ._compat import file_digest
 from .targets import Target
 
 
@@ -874,7 +874,7 @@ def _local_hash(artifact: dict, cwd: Path) -> None:
         ):
             raise ValueError(f"Invalid declared local wheel SHA256 hash: {local.name}")
         with local.open("rb") as stream:
-            actual = hashlib.file_digest(stream, "sha256").hexdigest()
+            actual = file_digest(stream, "sha256").hexdigest()
         if declared is not None and actual != declared.lower():
             raise ValueError(f"Local wheel SHA256 hash mismatch: {local.name}")
         artifact.setdefault("hashes", {})["sha256"] = actual

@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       max-parallel: 8
       matrix:
-        python: ['3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
         platform:
           - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu}
           - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu}
@@ -107,7 +107,7 @@ jobs:
       fail-fast: false
       max-parallel: 8
       matrix:
-        python: ['3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
         platform:
           - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu}
           - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu}
@@ -124,7 +124,7 @@ jobs:
       UV_PYTHON_PREFERENCE: only-managed
       TRANSFER_CONSUMER: ${{ matrix.platform.runner }}-${{ matrix.platform.libc }}-py${{ matrix.python }}
       # A pure-Python bundle packed once on Linux must install on every other target.
-      TRANSFER_PURE_PRODUCER: ubuntu-24.04-gnu-py3.11
+      TRANSFER_PURE_PRODUCER: ubuntu-24.04-gnu-py3.10
       EXPECTED_OS: ${{ matrix.platform.os }}
       EXPECTED_ARCH: ${{ matrix.platform.arch }}
       EXPECTED_PYTHON: ${{ matrix.python }}

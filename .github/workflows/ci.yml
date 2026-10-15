@@ -54,7 +54,7 @@ jobs:
       fail-fast: false
       max-parallel: 8
       matrix:
-        python: ['3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
         platform:
           - {runner: ubuntu-22.04, os: linux, arch: x86_64, libc: gnu}
           - {runner: ubuntu-24.04, os: linux, arch: x86_64, libc: gnu}
@@ -91,17 +91,51 @@ jobs:
           path: ci-results/
           if-no-files-found: warn
 
+  tox:
+    name: tox / CPython 3.10-3.14
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version-file: pyproject.toml
+          enable-cache: false
+      - name: Install managed Python versions
+        run: |
+          for version in 3.10 3.11 3.12 3.13 3.14; do
+            uv python install "$version"
+          done
+      - name: Expose managed interpreters to tox
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          for version in 3.10 3.11 3.12 3.13 3.14; do
+            ln -sf "$(uv python find "$version")" "$HOME/.local/bin/python$version"
+          done
+      - name: Run the suite across every supported Python
+        run: uvx tox
+      - name: Preserve tox results even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tox-results
+          path: .tox/**/.pytest_cache/
+          if-no-files-found: warn
+
   required:
     name: Required Native Checks
     runs-on: ubuntu-24.04
-    needs: [lint-build, native]
+    needs: [lint-build, native, tox]
     if: always()
     timeout-minutes: 5
     steps:
-      - name: Require every native job and lint/build job to succeed
+      - name: Require every native, tox, and lint/build job to succeed
         env:
           LINT_RESULT: ${{ needs.lint-build.result }}
           TEST_RESULT: ${{ needs.native.result }}
+          TOX_RESULT: ${{ needs.tox.result }}
         run: |
           test "$LINT_RESULT" = success
           test "$TEST_RESULT" = success
+          test "$TOX_RESULT" = success

@@ -101,11 +101,11 @@ class Target:
             not isinstance(python_version, str)
             or re.fullmatch(r"3\.(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))?", python_version) is None
         ):
-            raise ValueError("--python-version must be CPython major.minor[.patch] (>=3.11)")
+            raise ValueError("--python-version must be CPython major.minor[.patch] (>=3.10)")
         parts = tuple(map(int, python_version.split(".")))
         python = (parts[0], parts[1])
-        if python < (3, 11):
-            raise ValueError("Only CPython >=3.11 is supported")
+        if python < (3, 10):
+            raise ValueError("Only CPython >=3.10 is supported")
         full_version = python_version if len(parts) == 3 else python_version + ".0"
         default_abi = f"cp{python[0]}{python[1]}"
         if abi is None:

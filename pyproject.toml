@@ -7,13 +7,14 @@ name = "wheelpack"
 version = "0.1.0"
 description = "Carry Python environments across the air gap as self-contained wheel bundles"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
     "packaging>=25",
     "pip>=25",
     "poetry>=2",
     "poetry-plugin-export>=1.9",
+    "tomli>=2; python_version < '3.11'",
     "uv==0.12.5",
 ]
 

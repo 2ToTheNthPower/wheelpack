@@ -15,7 +15,6 @@ import re
 import shlex
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
 from urllib.request import url2pathname
@@ -23,6 +22,8 @@ from urllib.request import url2pathname
 from packaging.tags import sys_tags
 from packaging.utils import canonicalize_name, parse_wheel_filename
 from packaging.version import Version
+
+from ._compat import tomllib
 
 
 def _local_path(location: str | Path, cwd: Path) -> Path | None:
