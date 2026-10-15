@@ -12,6 +12,23 @@ uv add wheelpack      # or: pip install wheelpack
 Python 3.10+ is required. Resolution shells out to `uv`, `pip`, or `poetry`
 depending on the input; those are declared runtime dependencies.
 
+## Command line
+
+```sh
+wheelpack resolve ./my-project -o pylock.toml
+wheelpack retrieve pylock.toml -o wheelhouse/
+wheelpack pack ./my-project -o bundle.zip
+
+# cross-pack a Windows bundle from Linux
+wheelpack pack ./my-project -o windows.zip \
+  --python-version 3.12 --python-platform x86_64-pc-windows-msvc --abi cp312
+```
+
+Run `wheelpack --help` or `wheelpack <command> --help` for every option, or
+`python -m wheelpack` when the console script is not on `PATH`.
+
+## Library
+
 ## Resolve an input to a pylock plan
 
 ```python

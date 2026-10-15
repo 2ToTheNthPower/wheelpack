@@ -27,21 +27,14 @@ Requires Python 3.10+ and a [uv](https://docs.astral.sh/uv/) install for resolut
 
 ## Quick start
 
-```python
-from wheelpack import pylock, retrieve
-from wheelpack.pack import pack
+```sh
+wheelpack resolve ./my-project -o pylock.toml   # requirements, pyproject, uv.lock, or poetry.lock
+wheelpack retrieve pylock.toml -o wheelhouse/   # download or build the wheels
+wheelpack pack ./my-project -o bundle.zip       # source + wheels + installer in one ZIP
 
-# 1. Resolve an input into a PEP 751 plan.
-source = pylock.detect("my-project", "auto")
-resolution = pylock.resolve(
-    source, indexes=[], find_links=[], no_index=False, extras=[], groups=[]
-)
-
-# 2. Retrieve the wheels it names.
-wheels = retrieve.retrieve(resolution.plan, "wheelhouse/")
-
-# 3. Pack source + wheels + a standalone installer into one ZIP.
-pack("my-project", "bundle.zip")
+# cross-pack a Windows bundle from Linux
+wheelpack pack ./my-project -o windows.zip \
+  --python-version 3.12 --python-platform x86_64-pc-windows-msvc --abi cp312
 ```
 
 On the offline machine, extract the ZIP and run:
@@ -50,7 +43,21 @@ On the offline machine, extract the ZIP and run:
 python install.py --venv /path/to/new/venv
 ```
 
-No network, uv, Poetry, or an existing pip installation is required there.
+The same three stages are available as a library:
+
+```python
+from wheelpack import pylock, retrieve
+from wheelpack.pack import pack
+
+source = pylock.detect("my-project", "auto")
+resolution = pylock.resolve(
+    source, indexes=[], find_links=[], no_index=False, extras=[], groups=[]
+)
+wheels = retrieve.retrieve(resolution.plan, "wheelhouse/")
+pack("my-project", "bundle.zip")
+```
+
+No network, uv, Poetry, or an existing pip installation is required on the destination.
 
 ## Documentation
 

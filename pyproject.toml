@@ -18,6 +18,9 @@ dependencies = [
     "uv==0.12.5",
 ]
 
+[project.scripts]
+wheelpack = "wheelpack.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",
