@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
 import zipfile
+from pathlib import Path
 
 import pytest
 from helpers import build_wheel, write_project
 
 from wheelpack import cli
+
+
+class FakeTerminal(io.StringIO):
+    """A writable stream that claims to be a terminal."""
+
+    def isatty(self):
+        return True
 
 
 def test_version_via_module():
@@ -99,3 +108,36 @@ def test_errors_return_one(tmp_path, capsys):
 def test_unknown_manager_exits():
     with pytest.raises(SystemExit):
         cli.main(["project", "--manager", "conda"])
+
+
+def test_progress_bars_render_on_a_terminal(tmp_path, monkeypatch):
+    root = write_project(tmp_path)
+    links = tmp_path / "links"
+    build_wheel(links, "demo")
+    archive = tmp_path / "bundle.zip"
+    terminal = FakeTerminal()
+    monkeypatch.setattr(sys, "stderr", terminal)
+    code = cli.main(
+        [str(root), "-o", str(archive), "--manager", "pip",
+         "--find-links", str(links), "--no-index"]
+    )
+    assert code == 0
+    text = terminal.getvalue()
+    assert "retrieving" in text and "demo" in text
+    assert "copying source" in text
+    assert "packing" in text
+
+
+def test_progress_bars_are_silent_when_redirected(tmp_path, capsys):
+    root = write_project(tmp_path)
+    links = tmp_path / "links"
+    build_wheel(links, "demo")
+    archive = tmp_path / "bundle.zip"
+    code = cli.main(
+        [str(root), "-o", str(archive), "--manager", "pip",
+         "--find-links", str(links), "--no-index"]
+    )
+    assert code == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert captured.out.strip() == f"wrote {Path(archive).absolute()}"

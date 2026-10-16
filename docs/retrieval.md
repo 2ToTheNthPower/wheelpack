@@ -15,10 +15,13 @@ wheels = retrieve.retrieve(
     no_index=False,
     python=None,                # interpreter used for pip (defaults to sys.executable)
     target=None,                # a wheelpack.targets.Target for foreign wheels
+    progress=None,              # a wheelpack.progress.Progress for a per-package bar
 )
 ```
 
-`retrieve` returns the wheel paths written to the destination.
+`retrieve` returns the wheel paths written to the destination. The CLI passes a
+:class:`wheelpack.progress.Progress` so downloads and builds show a bar; the
+library stays silent unless you supply one.
 
 ## How a package is fetched
 

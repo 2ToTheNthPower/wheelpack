@@ -13,6 +13,7 @@ from packaging.utils import parse_wheel_filename
 
 from .. import __version__, pylock
 from .._compat import file_digest
+from ..progress import Progress
 from ..retrieve import retrieve
 
 _SOURCE_EXCLUDES = {
@@ -51,6 +52,7 @@ def pack(
     target=None,
     python: str | None = None,
     include_source: bool = True,
+    progress=None,
 ) -> Path:
     """Resolve ``input``, retrieve its wheels, and write a self-contained ZIP.
 
@@ -58,14 +60,16 @@ def pack(
     it was retrieved from, a hashed requirements file, a standalone installer,
     a manifest, and usage instructions. Pass ``target`` (a
     :class:`wheelpack.targets.Target`) to pack for a foreign machine,
-    architecture, and Python version instead of the packing host. Returns the
-    output path.
+    architecture, and Python version instead of the packing host. ``progress``
+    is an optional :class:`wheelpack.progress.Progress` used to report retrieval
+    and packing progress. Returns the output path.
     """
     output = Path(output).absolute()
     if output.exists() or output.is_symlink():
         raise PackError(f"Output already exists: {output}")
     if not output.parent.is_dir():
         raise PackError(f"Output parent directory does not exist: {output.parent}")
+    progress = progress or Progress(enabled=False)
     source = pylock.detect(input, manager)
     with tempfile.TemporaryDirectory(prefix="wheelpack-") as temporary:
         root = Path(temporary) / "bundle"
@@ -110,8 +114,11 @@ def pack(
                 find_links=find_links,
                 no_index=no_index,
                 python=python,
+                progress=progress,
             )
-        source_manifest = _copy_source(source, root / "source", output, include_source)
+        source_manifest = _copy_source(
+            source, root / "source", output, include_source, progress
+        )
         entries = [_wheel_entry(path) for path in wheel_paths]
         (root / "requirements.txt").write_text(
             _requirements(entries), encoding="utf-8", newline="\n"
@@ -132,11 +139,11 @@ def pack(
         (root / "README.txt").write_text(
             _instructions(source_manifest), encoding="utf-8", newline="\n"
         )
-        _archive(root, output)
+        _archive(root, output, progress)
     return output
 
 
-def _copy_source(source, destination: Path, output: Path, include: bool):
+def _copy_source(source, destination: Path, output: Path, include: bool, progress=None):
     if not include:
         return None
     destination.mkdir(parents=True, exist_ok=True)
@@ -145,17 +152,28 @@ def _copy_source(source, destination: Path, output: Path, include: bool):
         shutil.copyfile(source.input, target)
         return {"kind": "requirements", "path": target.name}
     root = source.cwd
-    for directory, directories, files in os.walk(root):
-        directories[:] = [name for name in directories if name not in _SOURCE_EXCLUDES]
-        for filename in files:
-            path = Path(directory) / filename
-            if path.resolve() == output.resolve() or path.suffix == ".zip":
-                continue
+    files = _source_files(root, output)
+    with progress.bar("copying source", len(files)) as bar:
+        for path in files:
             target = destination / path.relative_to(root)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
+            bar.advance(path.name)
     name = source.project.get("project", {}).get("name")
     return {"kind": "project", "path": "source", "name": name}
+
+
+def _source_files(root: Path, output: Path) -> list[Path]:
+    resolved_output = output.resolve()
+    files = []
+    for directory, directories, names in os.walk(root):
+        directories[:] = [name for name in directories if name not in _SOURCE_EXCLUDES]
+        for filename in names:
+            path = Path(directory) / filename
+            if path.resolve() == resolved_output or path.suffix == ".zip":
+                continue
+            files.append(path)
+    return files
 
 
 def _wheel_entry(path: Path) -> dict:
@@ -209,16 +227,19 @@ def _instructions(source_manifest) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _archive(root: Path, output: Path) -> None:
+def _archive(root: Path, output: Path, progress=None) -> None:
+    progress = progress or Progress(enabled=False)
+    files = [path for path in sorted(root.rglob("*")) if path.is_file()]
     descriptor, staged = tempfile.mkstemp(prefix=".wheelpack-", suffix=".zip", dir=output.parent)
     try:
         with (
             os.fdopen(descriptor, "wb") as stream,
             zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive,
+            progress.bar("packing", len(files)) as bar,
         ):
-            for path in sorted(root.rglob("*")):
-                if path.is_file():
-                    archive.write(path, path.relative_to(root).as_posix())
+            for path in files:
+                archive.write(path, path.relative_to(root).as_posix())
+                bar.advance(path.relative_to(root).as_posix())
         try:
             os.link(staged, output)
         except FileExistsError:

@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .. import sources as s
+from ..progress import Progress
 from .plan import load_plan
 
 
@@ -24,13 +25,15 @@ def retrieve(
     no_index: bool = False,
     python: str | None = None,
     target=None,
+    progress=None,
 ) -> list[Path]:
     """Download or build every package in ``lock`` into ``destination``.
 
     ``lock`` is a pylock.toml path or an already-parsed plan. ``target`` is an
     optional :class:`wheelpack.targets.Target` used to pick the matching wheel
-    for a foreign machine/architecture. Returns the wheel paths in
-    ``destination``.
+    for a foreign machine/architecture. ``progress`` is an optional
+    :class:`wheelpack.progress.Progress` used to report per-package progress.
+    Returns the wheel paths in ``destination``.
     """
     plan = load_plan(lock)
     cwd = Path(lock).resolve().parent if isinstance(lock, (str, Path)) else Path.cwd()
@@ -39,8 +42,14 @@ def retrieve(
     interpreter = python or sys.executable
     options = s._options(list(indexes), list(find_links), no_index)
     credential_urls = [*indexes, *find_links]
-    for package in plan["packages"]:
-        _retrieve_package(package, destination, options, credential_urls, interpreter, cwd, target)
+    progress = progress or Progress(enabled=False)
+    packages = plan["packages"]
+    with progress.bar("retrieving", len(packages)) as bar:
+        for package in packages:
+            _retrieve_package(
+                package, destination, options, credential_urls, interpreter, cwd, target
+            )
+            bar.advance(package.get("name", ""))
     return sorted(destination.glob("*.whl"))
 
 

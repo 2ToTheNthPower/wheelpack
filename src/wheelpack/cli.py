@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import __version__
 from .pack import pack
+from .progress import Progress
 from .targets import Target
 
 MANAGERS = ["auto", "pip", "uv", "poetry"]
@@ -93,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
             target=_target(args),
             python=args.python,
             include_source=not args.no_source,
+            progress=Progress(),
         )
     except (ValueError, OSError) as error:
         print(f"wheelpack: {error}", file=sys.stderr)

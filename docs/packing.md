@@ -15,10 +15,14 @@ pack(
     target=None,             # a wheelpack.targets.Target, for a foreign machine
     python=None,             # interpreter used for retrieval
     include_source=True,     # copy the project source into source/
+    progress=None,           # a wheelpack.progress.Progress, for bars during pack
 )
 ```
 
 The output path must not exist, and its parent directory must exist.
+
+`progress` reports retrieval, source copying, and ZIP assembly; the CLI supplies
+a terminal bar and the library is silent by default.
 
 ## Cross-packing for another machine
 

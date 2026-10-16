@@ -27,6 +27,9 @@ Useful options: `--manager auto|pip|uv|poetry`, `--index-url` (repeatable),
 `--force`. Run `wheelpack --help` for everything, or `python -m wheelpack` when
 the console script is not on `PATH`.
 
+Retrieval, source copying, and packing show a progress bar on stderr. Bars are
+drawn only when stderr is a terminal, so redirected output and logs stay clean.
+
 ## Library
 
 The three stages are also available separately for advanced use.
